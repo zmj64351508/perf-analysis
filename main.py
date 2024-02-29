@@ -1,18 +1,27 @@
-import csv, sys
+import csv, sys, os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from fnmatch import fnmatch
+import argparse
+
+class ReadableNumber(object):
+    def __init__(self, num):
+        self.raw = num
+
+    def __str__(self):
+        if self.raw >= 1000000000:
+            return "%.3fG" % (self.raw / 1000000000)
+        if self.raw >= 1000000:
+            return "%.3fM" % (self.raw / 1000000)
+        if self.raw >= 1000:
+            return "%.3fK" % (self.raw / 1000)
+        return str(self.raw)
 
 class PlotInteraction(object):
     def __init__(self, fig):
-        self.lastx = 0
-        self.lasty = 0
         self.press = False
         self.ctrl = False
         self.fig = fig
-        self.fig.canvas.mpl_connect("button_press_event", self.on_mouse_press(self))
-        self.fig.canvas.mpl_connect("button_release_event", self.on_mouse_release(self))
-        self.fig.canvas.mpl_connect("motion_notify_event", self.on_mouse_move(self))
         self.fig.canvas.mpl_connect("key_press_event", self.on_key_press(self))
         self.fig.canvas.mpl_connect("key_release_event", self.on_key_release(self))
         self.fig.canvas.mpl_connect("scroll_event", self.on_mouse_scroll(self))
@@ -32,47 +41,6 @@ class PlotInteraction(object):
         def __call__(self, event):
             if event.key == "control":
                 self.holder.ctrl = False
-
-    class on_mouse_press(object):
-        def __init__(self, holder):
-            self.holder = holder
-        def __call__(self, event):
-            if event.inaxes:  # 判断鼠标是否在axes内
-                if event.button == 1:  # 判断按下的是否为鼠标左键1（右键是3）
-                    self.holder.press = True
-                    self.holder.lastx = event.xdata  # 获取鼠标按下时的坐标X
-                    self.holder.lasty = event.ydata  # 获取鼠标按下时的坐标Y
-
-    class on_mouse_move(object):
-        def __init__(self, holder):
-            self.holder = holder
-        def __call__(self, event):
-            axtemp = event.inaxes
-            if axtemp:
-                if self.holder.press:  # 按下状态
-                    # 计算新的坐标原点并移动
-                    # 获取当前最新鼠标坐标与按下时坐标的差值
-                    x = event.xdata - self.holder.lastx
-                    y = event.ydata - self.holder.lasty
-                    # 获取当前原点和最大点的4个位置
-                    x_min, x_max = axtemp.get_xlim()
-                    y_min, y_max = axtemp.get_ylim()
-
-                    x_min = x_min - x
-                    x_max = x_max - x
-                    y_min = y_min - y
-                    y_max = y_max - y
-
-                    axtemp.set_xlim(x_min, x_max)
-                    axtemp.set_ylim(y_min, y_max)
-                    self.holder.fig.canvas.draw()  # 绘图动作实时反映在图像上
-
-    class on_mouse_release(object):
-        def __init__(self, holder):
-            self.holder = holder
-        def __call__(self, event):
-            if self.holder.press:
-                self.holder.press = False  # 鼠标松开，结束移动
 
     class on_mouse_scroll(object):
         def __init__(self, holder):
@@ -97,63 +65,51 @@ class PlotInteraction(object):
             self.holder.fig.canvas.draw_idle()
 
 
-def plot_record(records, start, end, type):
+def plot_record(records, start, end, type, fig=None, subplt=None):
     x = range(0, records.get_total_ms(), records.get_interval_ms())
-    fig = plt.figure()
-    cnt_plt = fig.add_subplot(1, 1, 1)
-    series = records.get_metric_series(filter='*'+type)
+    if not fig:
+        fig = plt.figure()
+        subplt = fig.add_subplot(1, 1, 1)
+
+    series = records.get_metric_series(type)
+
     for name in series:
         #print(name, series[name])
-        cnt_plt.plot(x, series[name], label=name, alpha=1.00)
-    cnt_plt.legend(loc = 'upper right')
-    cnt_plt.yaxis.set_major_formatter(ticker.EngFormatter(unit=''))
-    cnt_plt.yaxis.set_major_locator(ticker.MaxNLocator(nbins=16))
-    cnt_plt.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d ms'))
-    cnt_plt.axvline(x=start, linestyle='--')
-    cnt_plt.axvline(x=end, linestyle='--')
+        subplt.plot(x, series[name], '-o', label=records.get_raw_path() + ': ' + name, alpha=1.00)
+    subplt.legend(loc = 'upper right')
+    subplt.yaxis.set_major_formatter(ticker.EngFormatter(unit=''))
+    subplt.yaxis.set_major_locator(ticker.MaxNLocator(nbins=16))
+    subplt.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d ms'))
+    subplt.axvline(x=start, linestyle='--')
+    subplt.axvline(x=end, linestyle='--')
     fig.set_figheight(8)
     fig.set_figwidth(15)
     PlotInteraction(fig)
+    return fig, subplt
 
 
-def plot_percent_sum(records, start, end, type, deno, nume):
-    x = range(0, records.get_total_ms(), records.get_interval_ms())
-    fig = plt.figure()
-    sum_plt = fig.add_subplot(1, 1, 1)
-
-    data = records.get_percent_series(deno, nume, type)
-
-    label_name = type + ':'
-    for name in nume:
-        label_name += ' %s +' % name
-    label_name = label_name[:-1]
-
-    sum_plt.plot(x, data, label=label_name, alpha=1.00)
-
-    sum_plt.legend(loc = 'upper right')
-    sum_plt.yaxis.set_major_formatter(ticker.PercentFormatter())
-    sum_plt.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d ms'))
-    sum_plt.axvline(x=start, linestyle='--')
-    sum_plt.axvline(x=end, linestyle='--')
-    fig.set_figheight(8)
-    fig.set_figwidth(15)
-
-
-def statistics(records, start, end, type, post_process=lambda a : a):
-    series = records.get_metric_series(filter='*' + type)
+def statistics(records, start, end, type):
+    series = records.get_metric_series(type)
     interval = records.get_interval_ms()
-    print("statistics:")
+    start = int(start / interval)
+    if end == 0 or end == -1:
+        end = -1
+    else:
+        end = int(end / interval)
+    print("")
+    print(records.get_raw_path() + ":")
     for name in series:
         print(name)
-        start = int(start/interval)
-        if end == 0 or end == -1:
-            end = -1
-        else:
-            end = int(end/interval)
         data = series[name][start:end]
-        print("max:", post_process(max(data)))
-        print("min:", post_process(min(data)))
-        print("avg:", post_process(sum(data)/len(data)))
+
+        def __post_process(a):
+            if args.human:
+                a = ReadableNumber(a)
+            return a
+
+        print("  max:", __post_process(max(data)))
+        print("  min:", __post_process(min(data)))
+        print("  avg:", __post_process(sum(data)/len(data)))
 
 
 class Metric(object):
@@ -192,9 +148,10 @@ class Record(object):
 
 
 class RecordList(object):
-    def __init__(self, interval):
+    def __init__(self, interval, raw_path):
         self.list = []
         self.interval = interval
+        self.raw_path = raw_path
 
     def __str__(self):
         ret = 'interval: %d ms, length: %d' % (self.interval, len(self.list))
@@ -203,11 +160,15 @@ class RecordList(object):
             ret += r.__str__() + ', '
         return ret[:-2]
 
+    def get_raw_path(self):
+        return self.raw_path
+
     def append(self, record):
         self.list.append(record)
 
     def get_metric_series(self, filter='*'):
         series = {}
+        post_process = lambda a: a
         for r in self.list:
             m = r.get_metrics()
             for m_name in m:
@@ -215,47 +176,43 @@ class RecordList(object):
                 if fnmatch(name, filter):
                     if name not in series.keys():
                         series[name] = []
-                    series[name].append(m[m_name].get_bw())
+                    # do some data post process
+                    if fnmatch(name, '*bus-access*'):
+                        post_process = lambda a: a * args.bus_access_width
+                    elif fnmatch(name, '*cpu-cycles*'):
+                        post_process = lambda a : a * 1000000000
+                    series[name].append(post_process(m[m_name].get_bw()))
                 name = m_name + '_cnt'
                 if fnmatch(name, filter):
                     if name not in series.keys():
                         series[name] = []
-                    series[name].append(m[m_name].get_cnt())
+                    series[name].append(post_process(m[m_name].get_cnt()))
+        if args.normalize:
+            for name in series:
+                series[name] = [x / max(series[name]) for x in series[name]]
         return series
 
 
-    def get_percent_series(self, deno, nume, type):
-        data = []
-        for r in self.list:
-            nume_val = 0
-            for name in nume:
-                if type == 'bw':
-                    nume_val += r.get_metric(name).get_bw()
-                else:
-                    nume_val += r.get_metric(name).get_cnt()
-            if type == 'bw':
-                data.append(nume_val / r.get_metric(deno).get_bw() * 100)
-            else:
-                data.append(nume_val / r.get_metric(deno).get_cnt() * 100)
-        return data
+    def get_metric_series_name(self):
+        names = []
+        m = self.list[0].get_metrics()
+        for m_name in m:
+            names.append(m_name + '_bw')
+            names.append(m_name + '_cnt')
+        return names
 
 
     def get_total_ms(self):
         return len(self.list) * self.interval
 
     def get_interval_ms(self):
-        return interval
+        return self.interval
 
 
-if __name__ == '__main__':
+def open_records(file_path):
+    record_list = RecordList(args.interval, file_path)
 
-    start = 0
-    end = -1
-    interval = 100 # ms
-
-    record_list = RecordList(interval)
-
-    with open(sys.argv[1], newline='') as csvfile:
+    with open(file_path, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         record = None
         for row in reader:
@@ -281,16 +238,46 @@ if __name__ == '__main__':
 
             record.add_metric(name, Metric(cnt, bw))
 
-    # post_process MB/s
-    statistics(record_list, start, end, 'cpu-cycles_bw')
-    statistics(record_list, start, end, 'instructions_bw', lambda a: a*1000)
-    # 128 for pixel7/rk3588, 256 for xiaomi pad
-    statistics(record_list, start, end, 'access*bw', lambda a: a*256/1000000)
+        return record_list
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-l', '--list', help='List all available filters.', action='store_true')
+    parser.add_argument('-s', '--stats', help='Show statistics.', action='store_true')
+    parser.add_argument('-H', '--human', help='Print as human readable.', action='store_true')
+    parser.add_argument('-n', '--normalize', action='store_true')
+    parser.add_argument('-f', '--filter', help='Filter for data series, which can be called multiple times. Each one will create an individual figure', action='append')
+    parser.add_argument('-i', '--input', help='Input file, which can be called multiple times.', action='append')
+    parser.add_argument('--interval', help='Time interval for input serials.', type=int, default=100) #ms
+    parser.add_argument('--start', help='Start time(ms).', type=int, default=0)
+    parser.add_argument('--end', help='End time(ms).', type=int, default=-1)
+    parser.add_argument('--bus-access-width', dest='bus_access_width', help='Bus access width for each AXI beat. Known: Tensor G2/RK3588: 128; 8+Gen1: 256', type=int, default=1)
+    args = parser.parse_args()
 
-    #plot_record(record_list, start, end, 'cnt')
-    plot_record(record_list, start, end, 'access*bw')
-    plot_record(record_list, start, end, 'cpu-cycles*bw')
-    #mplcursors.cursor()
+    record_lists = []
+    for file_path in args.input:
+        record_lists.append(open_records(os.path.normpath(file_path)))
+    if args.list:
+        for record_list in record_lists:
+            print(record_list.get_raw_path() + ':')
+            for name in record_list.get_metric_series_name():
+                print('  ' + name)
+            print('total time: %d ms' % record_list.get_total_ms())
+        sys.exit(0)
+
+    if not args.filter or len(args.filter) == 0:
+        args.filter = ['*']
+
+    if args.stats:
+        for filter in args.filter:
+            for record_list in record_lists:
+                statistics(record_list, args.start, args.end, filter)
+        sys.exit(0)
+
+    for filter in args.filter:
+        fig = plt.figure()
+        subplt = fig.add_subplot(1, 1, 1)
+        for record_list in record_lists:
+            plot_record(record_list, args.start, args.end, filter, fig=fig, subplt=subplt)
     plt.show()
     
