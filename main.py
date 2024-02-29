@@ -9,7 +9,7 @@ def plot_record(records, start, end, type):
     cnt_plt = fig.add_subplot(1, 1, 1)
     series = records.get_metric_series(filter='*'+type)
     for name in series:
-        print(name, series[name])
+        #print(name, series[name])
         cnt_plt.plot(x, series[name], label=name, alpha=1.00)
     cnt_plt.legend(loc = 'upper right')
     cnt_plt.yaxis.set_major_formatter(ticker.EngFormatter(unit=''))
@@ -19,34 +19,6 @@ def plot_record(records, start, end, type):
     cnt_plt.axvline(x=end, linestyle='--')
     fig.set_figheight(8)
     fig.set_figwidth(15)
-
-    
-def plot_estimate_bw(records, interval, start, end, name):
-    estimate = []
-    length = len(records[name])
-    x = range(0, length * interval, interval)
-    for i in range(length):
-        t1_old = records['raw-inst-retired_util'][i]*1000/interval
-        t2_old = records[name+'_util'][i]*1000/interval
-        t1_new = 1 / 1.27 * t1_old
-        bw_old = records[name][i]
-        d = t2_old * bw_old
-        t2_new = t1_old + t2_old - t1_new
-        bw_new = d / t2_new
-        estimate.append(bw_new)
-
-    plt.plot(x, estimate, label='estimate', alpha=1.00)
-    plt.plot(x, records[name], label='origin', alpha=1.00)
-
-    plt.legend(loc = 'upper right')
-    plt.gca().yaxis.set_major_formatter(ticker.EngFormatter(unit=''))
-    plt.gca().yaxis.set_major_locator(ticker.MaxNLocator(nbins=16))
-    plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%d ms'))
-    plt.gcf().set_figheight(8)
-    plt.gcf().set_figwidth(15)
-    plt.gca().axvline(x=start, linestyle='--')
-    plt.gca().axvline(x=end, linestyle='--')
-
 
 
 def plot_percent_sum(records, start, end, type, deno, nume):
@@ -72,21 +44,21 @@ def plot_percent_sum(records, start, end, type, deno, nume):
     fig.set_figwidth(15)
 
 
-def statistics(records, interval, start=0, end=0):
-    print('from %d ms to %d ms'%(start, end))
-    for nouse, name in enumerate(records):
-        total = 0
-        time_ms = 1
-        record = records[name]
-        if end == 0:
-            total = sum(record[int(start/interval):])
-            length = len(record) - int(start/interval)
+def statistics(records, start, end, type, post_process=lambda a : a):
+    series = records.get_metric_series(filter='*' + type)
+    interval = records.get_interval_ms()
+    print("statistics:")
+    for name in series:
+        print(name)
+        start = int(start/interval)
+        if end == 0 or end == -1:
+            end = -1
         else:
-            total = sum(record[int(start/interval):int(end/interval)])
-            length = int(end/interval) - int(start/interval)
-        print(name + ' total: %.2f' % total)
-        print(name + ' max: %.2f' % max(record))
-        print(name + ' avg: %.2f' % (total / length))
+            end = int(end/interval)
+        data = series[name][start:end]
+        print("max:", post_process(max(data)))
+        print("min:", post_process(min(data)))
+        print("avg:", post_process(sum(data)/len(data)))
 
 
 class Metric(object):
@@ -182,8 +154,8 @@ class RecordList(object):
 
 if __name__ == '__main__':
 
-    start = 600
-    end = 5400
+    start = 0
+    end = -1
     interval = 100 # ms
 
     record_list = RecordList(interval)
@@ -214,12 +186,15 @@ if __name__ == '__main__':
 
             record.add_metric(name, Metric(cnt, bw))
 
-    #statistics(records, interval, start, end)
-    plot_record(record_list, start, end, 'cnt')
-    plot_record(record_list, start, end, 'bw')
-    plot_percent_sum(record_list, start, end, 'bw', 'raw-inst-retired', ('raw-mem-access-rd', 'raw-mem-access-wr'))
-    plot_percent_sum(record_list, start, end, 'bw', 'raw-inst-retired', ('raw-bus-access-rd','raw-bus-access-wr'))
-    #plot_estimate_bw(records, interval, start, end, 'raw-bus-access-rd')
-    #plot_estimate_bw(records, interval, start, end, 'raw-bus-access-wr')
+    # post_process MB/s
+    statistics(record_list, start, end, 'cpu-cycles_bw')
+    statistics(record_list, start, end, 'instructions_bw', lambda a: a*1000)
+    # 128 for pixel7/rk3588, 256 for xiaomi pad
+    statistics(record_list, start, end, 'access*bw', lambda a: a*256/1000000)
+
+
+    #plot_record(record_list, start, end, 'cnt')
+    plot_record(record_list, start, end, 'access*bw')
+    plot_record(record_list, start, end, 'cpu-cycles*bw')
     plt.show()
     
