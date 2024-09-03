@@ -209,7 +209,7 @@ class RecordList(object):
         return self.interval
 
 
-def open_records(file_path):
+def open_perf_stat_csv(file_path):
     record_list = RecordList(args.interval, file_path)
 
     with open(file_path, newline='') as csvfile:
@@ -256,7 +256,7 @@ if __name__ == '__main__':
 
     record_lists = []
     for file_path in args.input:
-        record_lists.append(open_records(os.path.normpath(file_path)))
+        record_lists.append(open_perf_stat_csv(os.path.normpath(file_path)))
     if args.list:
         for record_list in record_lists:
             print(record_list.get_raw_path() + ':')
