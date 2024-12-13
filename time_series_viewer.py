@@ -47,19 +47,120 @@ def add_perodic_analysis(parent, name, series):
 		perodic_analysis_viewers[name] = PerodicAnalysisViewer(parent, name, series)
 
 
+class MarkCommand:
+	def __init__(self, axes, x):
+		self.axes = axes
+		self.x = x
+		self.lines = []
+
+	def do_mark(self):
+		for ax in self.axes:
+			self.lines.append(ax.axvline(x=self.x, color='red', linestyle='-', linewidth=1))
+
+	def undo_mark(self):
+		for line in self.lines:
+			line.remove()
+
+
 class TimeSeriesViewerBase(tk.Toplevel):
 	def __init__(self, parent, fig):
 		super().__init__(parent)
+		self._fig = fig
+		self.mark_command = None
+		self.mark_command_history = []
 		self.canvas = FigureCanvasTkAgg(fig, master=self)
 		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 		self.canvas.draw()
 		toolbar = NavigationToolbar2Tk(self.canvas, self)
 		toolbar.update()
 		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+		self.canvas.mpl_connect("button_press_event", self.on_right_click)
+		self.popup_menu = tk.Menu(self, tearoff=0)
+		self.popup_menu.add_command(label="Mark", command=self.menu_mark)
+		self.popup_menu.add_command(label="Sync marks", command=self.menu_sync_marks)
+		self.popup_menu.add_command(label="Undo mark", command=self.menu_undo_mark)
+		self.popup_menu.add_command(label="Clear mark", command=self.menu_clear_mark)
 		#self.window.protocol("WM_DELETE_WINDOW", self.on_close)
 
 	def set_window_title(self, title):
 		self.title(title)
+
+	def mark(self, x):
+		command = MarkCommand(self._fig.axes, x)
+		command.do_mark()
+		self.mark_command_history.append(command)
+		self.canvas.draw()
+
+	def on_right_click(self, event):
+		if event.button == 3:
+			ax = event.inaxes
+			if ax:
+				try:
+					self.mark_x = event.xdata
+					self.popup_menu.tk_popup(event.guiEvent.x_root, event.guiEvent.y_root)
+					#event.guiEvent.handled = True
+				finally:
+					self.popup_menu.grab_release()
+
+	def undo_mark(self):
+		try:
+			command = self.mark_command_history.pop()
+		except IndexError:
+			command = None
+		if command:
+			command.undo_mark()
+			self.canvas.draw()
+
+	def clear_mark(self):
+		for command in self.mark_command_history:
+			command.undo_mark()
+		self.mark_command_history.clear()
+		self.canvas.draw()
+
+	def menu_mark(self):
+		if self.mark_x is not None:
+			self.mark(self.mark_x)
+
+		for k, v in viewer.items():
+			if v is not self:
+				v.mark(self.mark_x)
+		for k, v in combined_all_series.items():
+			if v is not self:
+				v.mark(self.mark_x)
+
+	def menu_sync_marks(self):
+		for k, v in viewer.items():
+			if v is not self:
+				v.clear_mark()
+		for k, v in combined_all_series.items():
+			if v is not self:
+				v.clear_mark()
+
+		for command in self.mark_command_history:
+			for k, v in viewer.items():
+				if v is not self:
+					v.mark(command.x)
+			for k, v in combined_all_series.items():
+				if v is not self:
+					v.mark(command.x)
+
+	def menu_undo_mark(self):
+		self.undo_mark()
+		for k, v in viewer.items():
+			if v is not self:
+				v.undo_mark()
+		for k, v in combined_all_series.items():
+			if v is not self:
+				v.undo_mark()
+
+	def menu_clear_mark(self):
+		self.clear_mark()
+		for k, v in viewer.items():
+			if v is not self:
+				v.clear_mark()
+		for k, v in combined_all_series.items():
+			if v is not self:
+				v.clear_mark()
 
 	#def on_close(self):
 	#	self.destory()
@@ -149,7 +250,7 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 		self.ax.legend(loc='upper left')
 		
 		self.span = SpanSelector(self.ax, self.on_select, 'horizontal', useblit=True,
-									props=dict(alpha=0.3, facecolor='blue'), interactive=True)
+									props=dict(alpha=0.3, facecolor='blue'), interactive=True, button=1)
 		self.show_statistics(0, 0)
 
 	def on_select(self, xmin, xmax):
