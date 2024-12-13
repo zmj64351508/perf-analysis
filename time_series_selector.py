@@ -22,7 +22,7 @@ class TimeSeriesList(tk.Frame):
 		self.canvas.create_window((0,0), window=roll_frame, anchor='nw')
 		self.canvas.configure(yscrollcommand=scrollbar.set)
 		roll_frame.bind("<Configure>", self.configure)
-		roll_frame.bind_all("<MouseWheel>", self.on_mousewheel)
+		roll_frame.bind("<MouseWheel>", self.on_mousewheel)
 
 		self.check_vars = []
 		self.checks = []
@@ -35,6 +35,7 @@ class TimeSeriesList(tk.Frame):
 			self.check_vars.append(var)
 			self.checks.append(chk)
 			self.checks_dict[option] = chk
+			chk.bind("<MouseWheel>", self.on_mousewheel)
 
 	def set_series_visibility(self, name, visible):
 		if name not in self.checks_dict:
@@ -94,7 +95,7 @@ class SearchBox(tk.Frame):
 		return self.input.focus_set()
 
 
-class TimeSeriesSelector(object):
+class TimeSeriesSelector(tk.Frame):
 	def __init__(self, all_series, root=None):
 		self.all_series = all_series
 		if not root:
@@ -102,8 +103,12 @@ class TimeSeriesSelector(object):
 		self.root = root
 		self.root.title("Select Time Series")
 		self.root.geometry("800x600")
+		self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-		left_frame = tk.Frame(root, borderwidth=2, relief="solid")
+		super().__init__(root)
+		super().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+		left_frame = tk.Frame(self, borderwidth=2, relief="solid")
 		left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5, anchor=tk.NW)
 
 		filter_input = SearchBox(left_frame, self.filter, text="Filter")
@@ -120,7 +125,7 @@ class TimeSeriesSelector(object):
 		self.series_list = TimeSeriesList(left_frame, self.all_series)
 		self.series_list.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5, anchor=tk.NW)
 
-		right_frame = tk.Frame(root)
+		right_frame = tk.Frame(self)
 		right_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5, anchor=tk.NW)
 
 		time_viewer_frame = tk.Frame(right_frame)
@@ -145,11 +150,11 @@ class TimeSeriesSelector(object):
 		confirm_button = ttk.Button(right_frame, text="Confirm", command=self.confirm_selection)
 		confirm_button.pack(side=tk.BOTTOM, padx=(0, 5), anchor=tk.SW)
 
-		self.root.bind_all("<Control-s>", lambda e: self.series_list.toggle_select_all())
-		self.root.bind_all("<Control-q>", lambda e: self.series_list.select_all())
-		self.root.bind_all("<Control-w>", lambda e: self.series_list.deselect_all())
-		self.root.bind_all("<Control-Return>", lambda e: self.confirm_selection())
-		self.root.bind_all("<Control-d>", lambda e: filter_input.clear())
+		self.bind_all("<Control-s>", lambda e: self.series_list.toggle_select_all())
+		self.bind_all("<Control-q>", lambda e: self.series_list.select_all())
+		self.bind_all("<Control-w>", lambda e: self.series_list.deselect_all())
+		self.bind_all("<Control-Return>", lambda e: self.confirm_selection())
+		self.bind_all("<Control-d>", lambda e: filter_input.clear())
 
 	def filter(self, text):
 		if len(text) == 0:
@@ -180,15 +185,19 @@ class TimeSeriesSelector(object):
 			for option in selected_series:
 				if self.use_time_viewer.get():
 					if self.time_viewer_type.get() == "combined viewer":
-						time_series_viewer.add_combined_viewer(option, self.all_series[option])
+						time_series_viewer.add_combined_viewer(self.root, option, self.all_series[option])
 					else:
-						time_series_viewer.add_seperated_viewer(option, self.all_series[option])
+						time_series_viewer.add_seperated_viewer(self.root, option, self.all_series[option])
 				if self.use_perodic_analysis.get():
-					time_series_viewer.add_perodic_analysis(option, self.all_series[option])
-			time_series_viewer.show()
+					time_series_viewer.add_perodic_analysis(self.root, option, self.all_series[option])
+			time_series_viewer.show(self.root)
 		except Exception as e:
 			time_series_viewer.clear()
 			messagebox.showerror("Error", message=str(e))
 
 	def show(self):
 		self.root.mainloop()
+
+	def on_close(self):
+		time_series_viewer.clear()
+		self.root.destroy()

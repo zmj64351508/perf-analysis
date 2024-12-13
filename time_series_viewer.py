@@ -1,8 +1,10 @@
 import os
+import tkinter as tk
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import SpanSelector
 from matplotlib.offsetbox import AnchoredText
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from astropy.timeseries import LombScargle
 from config import config
 
@@ -10,16 +12,20 @@ viewer = {}
 combined_all_series = {}
 perodic_analysis_viewers = {}
 
-def show():
+def show(parent):
 	global combined_all_series
 	if len(combined_all_series) > 0:
-		TimeSeriesCombinedViewer(combined_all_series)
+		TimeSeriesCombinedViewer(parent, combined_all_series)
 	combined_all_series = {}
-	plt.show()
+	#plt.show()
 
 def clear():
 	global viewer, combined_all_series, perodic_analysis_viewers
 	plt.close()
+	for key in viewer:
+		viewer[key].destroy()
+	for key in perodic_analysis_viewers:
+		perodic_analysis_viewers[key].destroy()
 	viewer = {}
 	combined_all_series = {}
 	perodic_analysis_viewers = {}
@@ -28,25 +34,45 @@ def save(path):
 	for key in sorted(viewer):
 		viewer[key].save(path)
 
-def add_seperated_viewer(name, series):
+def add_seperated_viewer(parent, name, series):
 	if name not in viewer:
-		viewer[name] = TimeSeriesViewer(name, series)
+		viewer[name] = TimeSeriesViewer(parent, name, series)
 
-def add_combined_viewer(name, series):
+def add_combined_viewer(parent, name, series):
 	if name not in combined_all_series:
 		combined_all_series[name] = series
 
-def add_perodic_analysis(name, series):
+def add_perodic_analysis(parent, name, series):
 	if name not in perodic_analysis_viewers:
-		perodic_analysis_viewers[name] = PerodicAnalysisViewer(name, series)
+		perodic_analysis_viewers[name] = PerodicAnalysisViewer(parent, name, series)
 
 
-class PerodicAnalysisViewer:
-	def __init__(self, name, series):
+class TimeSeriesViewerBase(tk.Toplevel):
+	def __init__(self, parent, fig):
+		super().__init__(parent)
+		self.canvas = FigureCanvasTkAgg(fig, master=self)
+		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+		self.canvas.draw()
+		toolbar = NavigationToolbar2Tk(self.canvas, self)
+		toolbar.update()
+		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+		#self.window.protocol("WM_DELETE_WINDOW", self.on_close)
+
+	def set_window_title(self, title):
+		self.title(title)
+
+	#def on_close(self):
+	#	self.destory()
+
+
+class PerodicAnalysisViewer(TimeSeriesViewerBase):
+	def __init__(self, parent, name, series):
 		self.name = name
 		self.series = series
 		self.fig, self.ax = plt.subplots(figsize=(15, 7))
-		self.fig.canvas.manager.set_window_title(self.name)
+		super().__init__(parent, self.fig)
+
+		self.set_window_title(self.name)
 		self.fig.canvas.mpl_connect('close_event', self.on_close)
 
 		time = series.get_timestamp_series()
@@ -66,10 +92,11 @@ class PerodicAnalysisViewer:
 		global perodic_analysis_viewers
 		perodic_analysis_viewers.pop(self.name, None)
 
-
-class TimeSeriesCombinedViewer:
-	def __init__(self, all_series):
+		
+class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
+	def __init__(self, parent, all_series):
 		self.fig, self.ax = plt.subplots(figsize=(15, 7))
+		super().__init__(parent, self.fig)
 
 		self.time_unit = "ns"
 		self.unit = ""
@@ -88,8 +115,9 @@ class TimeSeriesCombinedViewer:
 		self.ax.set_xlabel(f"time ({self.time_unit})")
 		self.ax.set_ylabel(f"({self.unit})")
 
-class TimeSeriesViewer:
-	def __init__(self, name, series):
+
+class TimeSeriesViewer(TimeSeriesViewerBase):
+	def __init__(self, parent, name, series):
 		self.series = series
 		self.data = series.get_data_series()
 		if series.get_unit() == "%":
@@ -106,7 +134,9 @@ class TimeSeriesViewer:
 
 		self.name = name
 		self.fig, self.ax = plt.subplots(figsize=(15, 7))
-		self.fig.canvas.manager.set_window_title(self.name)
+		super().__init__(parent, self.fig)
+
+		self.set_window_title(self.name)
 		self.fig.canvas.mpl_connect('close_event', self.on_close)
 		self.stat_text = AnchoredText("", loc="upper right", bbox_transform=self.ax.transAxes, prop={'alpha': 0.7}, )
 
