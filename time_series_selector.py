@@ -192,8 +192,8 @@ class TimeSeriesSelector(tk.Frame):
 					time_series_viewer.add_perodic_analysis(self.root, option, self.all_series[option])
 			time_series_viewer.show(self.root)
 		except Exception as e:
-			time_series_viewer.clear()
 			messagebox.showerror("Error", message=str(e))
+			time_series_viewer.clear()
 
 	def show(self):
 		self.root.mainloop()

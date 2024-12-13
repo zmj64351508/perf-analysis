@@ -21,7 +21,6 @@ def show(parent):
 
 def clear():
 	global viewer, combined_all_series, perodic_analysis_viewers
-	plt.close()
 	for key in viewer:
 		viewer[key].destroy()
 	for key in perodic_analysis_viewers:
@@ -29,6 +28,7 @@ def clear():
 	viewer = {}
 	combined_all_series = {}
 	perodic_analysis_viewers = {}
+	plt.close()
 
 def save(path):
 	for key in sorted(viewer):
