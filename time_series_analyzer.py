@@ -65,7 +65,7 @@ if __name__ == "__main__":
 		csv_exporter.save(os.path.join(args.output, "result.csv"), all_series)
 		for k, v in all_series.items():
 			print(f'Saving figure for {k}')
-			time_series_viewer.add_viewer(k, v)
+			time_series_viewer.add_seperated_viewer(None, k, v)
 			time_series_viewer.save(args.output, )
 			time_series_viewer.clear()
 

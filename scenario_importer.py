@@ -137,7 +137,7 @@ class ScenarioImporter:
 					isp_module_idx = search.group(2)
 					continue
 				if isp_module != "":
-					search = re.search("  fps:(\d+\.\d+)", line)
+					search = re.search(r' fps:(\d+\.\d+)', line)
 					if search:
 						fps = float(search.group(1))
 						key = f'cam.{isp_module}.{isp_module_idx}.fps'
@@ -147,8 +147,30 @@ class ScenarioImporter:
 						isp_module = ""
 						isp_module_idx = None
 						continue
+					search = re.search(r'max hw proc tm:(\d+\.\d+)ms', line)
+					if search:
+						time = float(search.group(1))
+						key = f'cam.{isp_module}.{isp_module_idx}.hw_process_time'
+						if key not in self.all_series:
+							self.all_series[key] = TimeSeries([], [], 'ms', Better.LOWER)
+						self.all_series[key].add_one_data(timestamp, time)
+						continue
+				search = re.search(r'Display get wb frame done,fps = (\d+\.\d+), bw = (\d+)', line)
+				if search:
+					key = 'dpu.fps'
+					fps = float(search.group(1))
+					if key not in self.all_series:
+						self.all_series[key] = TimeSeries([], [], 'fps', Better.HIGHER)
+					self.all_series[key].add_one_data(timestamp, fps)
+
+					key = 'dpu.bw'
+					bw = int(search.group(2)) / 1024 / 1024
+					if key not in self.all_series:
+						self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
+					self.all_series[key].add_one_data(timestamp, bw)
+					continue
 				# bandwidth monitor
-				search = re.search(r'\*\*Average Bandwidth\*\*', line)
+				search = re.search(r'\*\*(Average|Full) Bandwidth\*\*', line)
 				if search:
 					monitor_timestamp = timestamp
 					continue
@@ -157,11 +179,11 @@ class ScenarioImporter:
 					if search:
 						name = search.group(1).lower()
 						# workaround for duplicate cam
-						if name == 'cam':
-							cam_idx += 1
-							if cam_idx % 2 == 0:
-								continue
-						elif name == 'cpu':
+						#if name == 'cam':
+						#	cam_idx += 1
+						#	if cam_idx % 2 == 0:
+						#		continue
+						if name == 'cpu':
 							name = 'a720.PNC'
 						key = f'{name}.monitor.total_bw'
 						bw = int(search.group(2))
@@ -173,20 +195,21 @@ class ScenarioImporter:
 
 
 	def get_all_series(self):
-		#if 'overall.monitor.total_bw' not in self.all_series:
-		#	total_bw = None
-		#	total_bw_timestamp = None
-		#	total_bw_unit = ""
-		#	for key in self.all_series:
-		#		if key.endswith('.monitor.total_bw'):
-		#			if total_bw is None:
-		#				total_bw = self.all_series[key].get_data_series()
-		#				total_bw_timestamp = self.all_series[key].get_timestamp_series()
-		#				total_bw_unit = self.all_series[key].get_unit()
-		#			else:
-		#				total_bw += self.all_series[key].get_data_series()
-		#	if total_bw is not None:
-		#		timestamp = total_bw_timestamp.tolist() if total_bw_timestamp is not None else None
-		#		data = total_bw.tolist() if total_bw is not None else None
-		#		self.all_series['overall.monitor.total_bw'] = TimeSeries(timestamp, data, total_bw_unit, Better.HIGHER)
+		if 'ddr.monitor.sum_total_bw' not in self.all_series:
+			total_bw = None
+			total_bw_timestamp = None
+			total_bw_unit = ""
+			for key in self.all_series:
+				if key.endswith('.monitor.total_bw') and not key.startswith("ddr"):
+					print(f'{key}')
+					if total_bw is None:
+						total_bw = self.all_series[key].get_data_series()
+						total_bw_timestamp = self.all_series[key].get_timestamp_series()
+						total_bw_unit = self.all_series[key].get_unit()
+					else:
+						total_bw += self.all_series[key].get_data_series()
+			if total_bw is not None:
+				timestamp = total_bw_timestamp.tolist() if total_bw_timestamp is not None else None
+				data = total_bw.tolist() if total_bw is not None else None
+				self.all_series['ddr.monitor.sum_total_bw'] = TimeSeries(timestamp, data, total_bw_unit, Better.HIGHER)
 		return self.all_series

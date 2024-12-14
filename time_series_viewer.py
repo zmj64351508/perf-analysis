@@ -21,10 +21,6 @@ def show(parent):
 
 def clear():
 	global viewer, combined_all_series, perodic_analysis_viewers
-	for key in viewer:
-		viewer[key].destroy()
-	for key in perodic_analysis_viewers:
-		perodic_analysis_viewers[key].destroy()
 	viewer = {}
 	combined_all_series = {}
 	perodic_analysis_viewers = {}
