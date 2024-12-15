@@ -88,7 +88,7 @@ class TimeSeriesViewerBase(tk.Toplevel):
 		self.title(title)
 
 	def mark(self, x):
-		command = MarkCommand(self._fig.axes, x)
+		command = MarkCommand(self.fig.axes, x)
 		command.do_mark()
 		self.mark_command_history.append(command)
 		self.canvas.draw()
@@ -150,7 +150,7 @@ class TimeSeriesViewerBase(tk.Toplevel):
 		return None
 
 	def set_x_scale(self, min, max):
-		for ax in self._fig.axes:
+		for ax in self.fig.axes:
 			ax.set_xlim([min, max])
 		self.canvas.draw()
 
