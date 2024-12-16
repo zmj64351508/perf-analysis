@@ -173,16 +173,17 @@ class ScenarioImporter:
 				search = re.search(r'\*\*(Average|Full) Bandwidth\*\*', line)
 				if search:
 					monitor_timestamp = timestamp
+					cam_idx = 0
 					continue
 				if monitor_timestamp > 0:
 					search = re.search(r'^(\w+): (\d+) ([KMG]+B/s)', line)
 					if search:
 						name = search.group(1).lower()
 						# workaround for duplicate cam
-						#if name == 'cam':
-						#	cam_idx += 1
-						#	if cam_idx % 2 == 0:
-						#		continue
+						if name == 'cam':
+							cam_idx += 1
+							if cam_idx % 2 == 0:
+								continue
 						if name == 'cpu':
 							name = 'a720.PNC'
 						key = f'{name}.monitor.total_bw'
