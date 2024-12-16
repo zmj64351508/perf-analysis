@@ -169,6 +169,16 @@ class ScenarioImporter:
 						self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
 					self.all_series[key].add_one_data(timestamp, bw)
 					continue
+				# cpu memcpy
+				search = re.search(r'Core(\d+):.*cpu memcpy test bandwidth: (\d+) MB/s', line)
+				if search:
+					core_id = int(search.group(1))
+					bw = int(search.group(2))
+					key = f'a720.{core_id}.memcpy'
+					if key not in self.all_series:
+						self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
+					self.all_series[key].add_one_data(monitor_timestamp, bw)
+					continue
 				# bandwidth monitor
 				search = re.search(r'\*\*(Average|Full) Bandwidth\*\*', line)
 				if search:
@@ -176,7 +186,7 @@ class ScenarioImporter:
 					cam_idx = 0
 					continue
 				if monitor_timestamp > 0:
-					search = re.search(r'^(\w+): (\d+) ([KMG]+B/s)', line)
+					search = re.search(r'^(.+): (\d+) ([KMG]+B/s)', line)
 					if search:
 						name = search.group(1).lower()
 						# workaround for duplicate cam
@@ -186,6 +196,8 @@ class ScenarioImporter:
 								continue
 						if name == 'cpu':
 							name = 'a720.PNC'
+						elif name.startswith('cpu '):
+							name = name.replace('cpu ', 'a720.')
 						key = f'{name}.monitor.total_bw'
 						bw = int(search.group(2))
 						unit = search.group(3)
@@ -202,7 +214,6 @@ class ScenarioImporter:
 			total_bw_unit = ""
 			for key in self.all_series:
 				if key.endswith('.monitor.total_bw') and not key.startswith("ddr"):
-					print(f'{key}')
 					if total_bw is None:
 						total_bw = self.all_series[key].get_data_series()
 						total_bw_timestamp = self.all_series[key].get_timestamp_series()
