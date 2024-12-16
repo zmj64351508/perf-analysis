@@ -45,16 +45,16 @@ if __name__ == "__main__":
 			print(k)
 		sys.exit(0)
 
-	for k, v in all_series.items():
-		print(f'{k} count {v.count()}')
-		if v.get_unit() == "%":
-			print(f'{k} avg   {v.calc_average()*100:.2f}%')
-			print(f'{k} worst {v.calc_worst()*100:.2f}%')
-			print(f'{k} best  {v.calc_best()*100:.2f}%')
+	for k in sorted(all_series):
+		print(f'{k} count {all_series[k].count()}')
+		if all_series[k].get_unit() == "%":
+			print(f'{k} avg   {all_series[k].calc_average()*100:.2f}%')
+			print(f'{k} worst {all_series[k].calc_worst()*100:.2f}%')
+			print(f'{k} best  {all_series[k].calc_best()*100:.2f}%')
 		else:
-			print(f'{k} avg   {v.calc_average():.2f}')
-			print(f'{k} worst {v.calc_worst():.2f}')
-			print(f'{k} best  {v.calc_best():.2f}')
+			print(f'{k} avg   {all_series[k].calc_average():.2f}')
+			print(f'{k} worst {all_series[k].calc_worst():.2f}')
+			print(f'{k} best  {all_series[k].calc_best():.2f}')
 		print('=' * 80)
 
 	if args.output != "":
