@@ -57,6 +57,17 @@ class MarkCommand:
 		for line in self.lines:
 			line.remove()
 
+class TimeSeriesNavigationToolbar(NavigationToolbar2Tk):
+	def __init__(self, canvas, parent):
+		super().__init__(canvas, parent)
+		self.custom_label = tk.Label(self, text="")
+		self.custom_label.pack(side=tk.RIGHT)
+
+	def set_message(self, s):
+		pass
+
+	def update_x_y(self, x, y):
+		self.custom_label.config(text=f"x={x:.2f}, y={y:.2f}")
 
 class TimeSeriesViewerBase(tk.Toplevel):
 	def __init__(self, parent):
@@ -67,8 +78,8 @@ class TimeSeriesViewerBase(tk.Toplevel):
 		self.canvas = FigureCanvasTkAgg(self.fig, master=self)
 		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 		self.canvas.draw()
-		toolbar = NavigationToolbar2Tk(self.canvas, self)
-		toolbar.update()
+		self.toolbar = TimeSeriesNavigationToolbar(self.canvas, self)
+		self.toolbar.update()
 		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 		self.canvas.mpl_connect("button_press_event", self.on_right_click)
 		self.canvas.mpl_connect('motion_notify_event', self.on_motion)
@@ -138,6 +149,7 @@ class TimeSeriesViewerBase(tk.Toplevel):
 		y_series = self.get_y_series(ax, series_index)
 		self.highlight.set_data(x_series[value_index], y_series[value_index])
 		self.highlight.set_color(lines[series_index].get_color())
+		self.toolbar.update_x_y(x_series[value_index], y_series[value_index])
 		self.fig.canvas.draw_idle()
 
 	def get_lines(self):
