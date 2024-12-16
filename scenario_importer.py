@@ -112,7 +112,7 @@ class ScenarioImporter:
 					search = re.search(r'DDR R/W Bandwidth: (.*) MB/s', line)
 					if search:
 						key = f'vdsp.{vdsp_core}.copy_rw'
-						bw = float(search.group(1))
+						bw = float(search.group(1)) * 2
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, bw)
