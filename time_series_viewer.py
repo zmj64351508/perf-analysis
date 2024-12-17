@@ -273,7 +273,7 @@ class PerodicAnalysisViewer(TimeSeriesViewerBase):
 		perodic_analysis_viewers.pop(self.name, None)
 
 	def get_lines(self):
-		return [self.line]
+		return self.line
 
 	def get_x_series(self, axes, index):
 		return self.x
