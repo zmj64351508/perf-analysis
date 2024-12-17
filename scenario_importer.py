@@ -207,21 +207,25 @@ class ScenarioImporter:
 						continue
 
 
-	def get_all_series(self):
-		if 'ddr.monitor.sum_total_bw' not in self.all_series:
-			total_bw = None
-			total_bw_timestamp = None
-			total_bw_unit = ""
+	def sum_series(self, pattern, new_name):
+		if new_name not in self.all_series:
+			new_series = []
+			new_timestamp = []
+			new_unit = ""
 			for key in self.all_series:
-				if key.endswith('.monitor.total_bw') and not key.startswith("ddr"):
-					if total_bw is None:
-						total_bw = self.all_series[key].get_data_series()
-						total_bw_timestamp = self.all_series[key].get_timestamp_series()
-						total_bw_unit = self.all_series[key].get_unit()
+				if re.search(pattern, key):
+					if len(new_series) == 0:
+						new_series = self.all_series[key].get_data_series()
+						new_timestamp = self.all_series[key].get_timestamp_series()
+						new_unit = self.all_series[key].get_unit()
 					else:
-						total_bw += self.all_series[key].get_data_series()
-			if total_bw is not None:
-				timestamp = total_bw_timestamp.tolist() if total_bw_timestamp is not None else None
-				data = total_bw.tolist() if total_bw is not None else None
-				self.all_series['ddr.monitor.sum_total_bw'] = TimeSeries(timestamp, data, total_bw_unit, Better.HIGHER)
+						new_series += self.all_series[key].get_data_series()
+			if len(new_series) > 0:
+				timestamp = new_timestamp.tolist() if new_timestamp is not None else None
+				data = new_series.tolist() if new_series is not None else None
+				self.all_series[new_name] = TimeSeries(timestamp, data, new_unit, Better.HIGHER)
+
+	def get_all_series(self):
+		self.sum_series('.*monitor\.total_bw', 'ddr.monitor.sum_total_bw')
+		self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
 		return self.all_series
