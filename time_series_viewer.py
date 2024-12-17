@@ -59,15 +59,19 @@ class MarkCommand:
 
 class TimeSeriesNavigationToolbar(NavigationToolbar2Tk):
 	def __init__(self, canvas, parent):
+		self.data_x = None
+		self.data_y = None
 		super().__init__(canvas, parent)
-		self.custom_label = tk.Label(self, text="")
-		self.custom_label.pack(side=tk.RIGHT)
 
 	def set_message(self, s):
-		pass
+		if self.data_x is None or self.data_y is None:
+			super().set_message(s)
+		else:
+			super().set_message(f'data({self.data_x:.2f}, {self.data_y:.2f}) ' + s)
 
 	def update_x_y(self, x, y):
-		self.custom_label.config(text=f"x={x:.2f}, y={y:.2f}")
+		self.data_x = x
+		self.data_y = y
 
 class TimeSeriesViewerBase(tk.Toplevel):
 	def __init__(self, parent):
