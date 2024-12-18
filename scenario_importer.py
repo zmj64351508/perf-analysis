@@ -78,6 +78,18 @@ class ScenarioImporter:
 					if key not in self.all_series:
 						self.all_series[key] = TimeSeries([], [], 'cycle', Better.LOWER)
 					self.all_series[key].add_one_data(timestamp, vpu_cycle)
+				# bpu
+				search = re.search(r'BPU model\[(.*)\] sum: read_bw\[(\d+)\] MB/s; write_bw\[(\d+)\] MB/s', line)
+				if search:
+					model = search.group(1)
+					read_bw = int(search.group(2))
+					write_bw = int(search.group(3))
+					bw = read_bw + write_bw
+					key = f'bpu.{model}.bw'
+					if key not in self.all_series:
+						self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
+					self.all_series[key].add_one_data(timestamp, bw)
+					continue
 				search = re.search(r'BPU model\[(.*)\].*fps\[(\d+)\]', line)
 				if search:
 					bpu_model = search.group(1)
@@ -87,7 +99,6 @@ class ScenarioImporter:
 						self.all_series[key] = TimeSeries([], [], 'fps', Better.HIGHER)
 					self.all_series[key].add_one_data(timestamp, bpu_model_fps)
 					continue
-				# bpu
 				if bpu_model != "":
 					search = re.search(r'read_bw\[(\d+)\].*write_bw\[(\d+)\]', line)
 					if search:
