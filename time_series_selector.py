@@ -96,16 +96,15 @@ class SearchBox(tk.Frame):
 
 
 class TimeSeriesSelector(tk.Frame):
-	def __init__(self, all_series, root=None):
+	def __init__(self, parent, mgr, all_series):
 		self.all_series = all_series
-		if not root:
-			root = tk.Tk()
-		self.root = root
+		self.root = parent
 		self.root.title("Select Time Series")
 		self.root.geometry("800x600")
 		self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+		self.mgr = mgr
 
-		super().__init__(root)
+		super().__init__(parent)
 		super().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 		left_frame = tk.Frame(self, borderwidth=2, relief="solid")
@@ -185,19 +184,17 @@ class TimeSeriesSelector(tk.Frame):
 			for option in selected_series:
 				if self.use_time_viewer.get():
 					if self.time_viewer_type.get() == "combined viewer":
-						time_series_viewer.add_combined_viewer(self.root, option, self.all_series[option])
+						self.mgr.add_combined_viewer(option, self.all_series[option])
 					else:
-						time_series_viewer.add_seperated_viewer(self.root, option, self.all_series[option])
+						self.mgr.add_seperated_viewer(option, self.all_series[option])
 				if self.use_perodic_analysis.get():
-					time_series_viewer.add_perodic_analysis(self.root, option, self.all_series[option])
-			time_series_viewer.show(self.root)
+					self.mgr.add_perodic_analysis(option, self.all_series[option])
+			self.mgr.show()
 		except Exception as e:
 			messagebox.showerror("Error", message=str(e))
-			time_series_viewer.clear()
-
-	def show(self):
-		self.root.mainloop()
+			self.mgr.clear()
+			raise(e)
 
 	def on_close(self):
-		time_series_viewer.clear()
+		self.mgr.clear()
 		self.root.destroy()

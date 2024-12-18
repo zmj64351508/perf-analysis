@@ -2,8 +2,9 @@ import os, sys
 import argparse
 import re
 import glob
+import tkinter as tk
 from scenario_importer import ScenarioImporter
-import time_series_viewer
+from time_series_viewer import TimeSeriesViewerManager
 from config import config
 from time_series_selector import TimeSeriesSelector
 import csv_exporter
@@ -57,6 +58,9 @@ if __name__ == "__main__":
 			print(f'{k} best  {all_series[k].calc_best():.2f}')
 		print('=' * 80)
 
+	root = tk.Tk()
+	viewer_mgr = TimeSeriesViewerManager(root)
+
 	if args.output != "":
 		args.output = os.path.normpath(args.output)
 		if not os.path.exists(args.output):
@@ -65,13 +69,13 @@ if __name__ == "__main__":
 		csv_exporter.save(os.path.join(args.output, "result.csv"), all_series)
 		for k, v in all_series.items():
 			print(f'Saving figure for {k}')
-			time_series_viewer.add_seperated_viewer(None, k, v)
-			time_series_viewer.save(args.output, )
-			time_series_viewer.clear()
+			viewer_mgr.add_seperated_viewer(k, v)
+			viewer_mgr.save(args.output)
+			viewer_mgr.clear()
 
 	if args.output != "":
 		sys.exit(0)
 
 	if args.gui:
-		selector = TimeSeriesSelector(all_series)
-		selector.show()
+		selector = TimeSeriesSelector(root, viewer_mgr, all_series)
+		root.mainloop()

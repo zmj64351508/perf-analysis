@@ -8,40 +8,54 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from astropy.timeseries import LombScargle
 from config import config
 
-viewer = {}
-combined_all_series = {}
-perodic_analysis_viewers = {}
+class TimeSeriesViewerManager:
+	def __init__(self, parent):
+		self.seperated_viewer = {}
+		self.combined_all_series = {}
+		self.perodic_analysis_viewers = {}
+		self.parent = parent
 
-def show(parent):
-	global combined_all_series
-	if len(combined_all_series) > 0:
-		TimeSeriesCombinedViewer(parent, combined_all_series)
-	combined_all_series = {}
-	#plt.show()
+	def show(self):
+		if len(self.combined_all_series) > 0:
+			TimeSeriesCombinedViewer(self.parent, self, self.combined_all_series)
+		self.combined_all_series = {}
+		#plt.show()
 
-def clear():
-	global viewer, combined_all_series, perodic_analysis_viewers
-	viewer = {}
-	combined_all_series = {}
-	perodic_analysis_viewers = {}
-	plt.close()
+	def clear(self):
+		self.seperated_viewer = {}
+		self.combined_all_series = {}
+		self.perodic_analysis_viewers = {}
+		plt.close()
 
-def save(path):
-	for key in sorted(viewer):
-		viewer[key].save(path)
+	def save(self, path):
+		for key in sorted(self.seperated_viewer):
+			self.seperated_viewer[key].save(path)
 
-def add_seperated_viewer(parent, name, series):
-	if name not in viewer:
-		viewer[name] = TimeSeriesViewer(parent, name, series)
+	def add_seperated_viewer(self, name, series):
+		if name not in self.seperated_viewer:
+			self.seperated_viewer[name] = TimeSeriesViewer(self.parent, self, name, series)
 
-def add_combined_viewer(parent, name, series):
-	if name not in combined_all_series:
-		combined_all_series[name] = series
+	def remove_seperated_viewer(self, name):
+		self.seperated_viewer.pop(name, None)
 
-def add_perodic_analysis(parent, name, series):
-	if name not in perodic_analysis_viewers:
-		perodic_analysis_viewers[name] = PerodicAnalysisViewer(parent, name, series)
+	def add_combined_viewer(self, name, series):
+		if name not in self.combined_all_series:
+			self.combined_all_series[name] = series
 
+	def add_perodic_analysis(self, name, series):
+		if name not in self.perodic_analysis_viewers:
+			self.perodic_analysis_viewers[name] = PerodicAnalysisViewer(self.parent, self, name, series)
+
+	def remove_perodic_analysis(self, name):
+		self.perodic_analysis_viewers.pop(name, None)
+
+	def for_all_viewers(self, func):
+		for k, v in self.seperated_viewer.items():
+			if v is not self:
+				func(k, v)
+		for k, v in self.combined_all_series.items():
+			if v is not self:
+				func(k, v)
 
 class MarkCommand:
 	def __init__(self, axes, x):
@@ -74,7 +88,7 @@ class TimeSeriesNavigationToolbar(NavigationToolbar2Tk):
 		self.data_y = y
 
 class TimeSeriesViewerBase(tk.Toplevel):
-	def __init__(self, parent):
+	def __init__(self, parent, mgr):
 		super().__init__(parent)
 		self.fig, self.ax = plt.subplots(figsize=(15, 7))
 		self.mark_command = None
@@ -97,10 +111,14 @@ class TimeSeriesViewerBase(tk.Toplevel):
 		if config['plot.marker'] == '.':
 			highlight_marker = 'o'
 		self.highlight, = self.ax.plot([], [], highlight_marker)
+		self.mgr = mgr
 		#self.window.protocol("WM_DELETE_WINDOW", self.on_close)
 
 	def set_window_title(self, title):
 		self.title(title)
+
+	def get_mgr(self):
+		return self.mgr
 
 	def mark(self, x):
 		command = MarkCommand(self.fig.axes, x)
@@ -186,68 +204,32 @@ class TimeSeriesViewerBase(tk.Toplevel):
 		self.canvas.draw()
 
 	def menu_sync_scale(self):
-		for k, v in viewer.items():
-			if v is not self:
-				v.set_x_scale(self.scale_x_min, self.scale_x_max)
-		for k, v in combined_all_series.items():
-			if v is not self:
-				v.set_x_scale(self.scale_x_min, self.scale_x_max)
-
+		self.get_mgr().for_all_viewers(lambda k, v : v.set_x_scale(self.scale_x_min, self.scale_x_max))
 
 	def menu_mark(self):
 		if self.mark_x is not None:
-			self.mark(self.mark_x)
-
-		for k, v in viewer.items():
-			if v is not self:
-				v.mark(self.mark_x)
-		for k, v in combined_all_series.items():
-			if v is not self:
-				v.mark(self.mark_x)
+			self.get_mgr().for_all_viewers(lambda k, v : v.mark(self.mark_x))
 
 	def menu_sync_marks(self):
-		for k, v in viewer.items():
-			if v is not self:
-				v.clear_mark()
-		for k, v in combined_all_series.items():
-			if v is not self:
-				v.clear_mark()
-
+		self.get_mgr().for_all_viewers(lambda k, v : v.clear_mark() if v is not self else None)
 		for command in self.mark_command_history:
-			for k, v in viewer.items():
-				if v is not self:
-					v.mark(command.x)
-			for k, v in combined_all_series.items():
-				if v is not self:
-					v.mark(command.x)
+			self.get_mgr().for_all_viewers(lambda k, v : v.mark(command.x) if v is not self else None)
 
 	def menu_undo_mark(self):
-		self.undo_mark()
-		for k, v in viewer.items():
-			if v is not self:
-				v.undo_mark()
-		for k, v in combined_all_series.items():
-			if v is not self:
-				v.undo_mark()
+		self.get_mgr().for_all_viewers(lambda k, v : v.undo_mark())
 
 	def menu_clear_mark(self):
-		self.clear_mark()
-		for k, v in viewer.items():
-			if v is not self:
-				v.clear_mark()
-		for k, v in combined_all_series.items():
-			if v is not self:
-				v.clear_mark()
+		self.get_mgr().for_all_viewers(lambda k, v : v.clear_mark())
 
 	#def on_close(self):
 	#	self.destory()
 
 
 class PerodicAnalysisViewer(TimeSeriesViewerBase):
-	def __init__(self, parent, name, series):
+	def __init__(self, parent, mgr, name, series):
 		self.name = name
 		self.series = series
-		super().__init__(parent)
+		super().__init__(parent, mgr)
 
 		self.set_window_title(self.name)
 		self.fig.canvas.mpl_connect('close_event', self.on_close)
@@ -269,8 +251,7 @@ class PerodicAnalysisViewer(TimeSeriesViewerBase):
 		self.ax.set_ylabel('power')
 
 	def on_close(self, event):
-		global perodic_analysis_viewers
-		perodic_analysis_viewers.pop(self.name, None)
+		self.get_mgr().remove_perodic_analysis(self.name)
 
 	def get_lines(self):
 		return self.line
@@ -283,8 +264,8 @@ class PerodicAnalysisViewer(TimeSeriesViewerBase):
 
 		
 class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
-	def __init__(self, parent, all_series):
-		super().__init__(parent)
+	def __init__(self, parent, mgr, all_series):
+		super().__init__(parent, mgr)
 
 		self.time_unit = "ns"
 		self.unit = ""
@@ -317,7 +298,7 @@ class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
 
 
 class TimeSeriesViewer(TimeSeriesViewerBase):
-	def __init__(self, parent, name, series):
+	def __init__(self, parent, mgr, name, series):
 		self.series = series
 		self.data = series.get_data_series()
 		if series.get_unit() == "%":
@@ -333,7 +314,7 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 			raise ValueError(f"Time and data series must have the same length. {len(self.timestamps)} vs. {len(series.data)}")
 
 		self.name = name
-		super().__init__(parent)
+		super().__init__(parent, mgr)
 
 		self.set_window_title(self.name)
 		self.fig.canvas.mpl_connect('close_event', self.on_close)
@@ -364,8 +345,7 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 		self.show_statistics(xmin, xmax)
 
 	def on_close(self, event):
-		global viewer
-		viewer.pop(self.name, None)
+		self.get_mgr().remove_seperated_viewer(self.name)
 
 	def show_statistics(self, start_ns, end_ns):
 		min_bw, max_bw, mean_bw, start, end = self.calculate_statistics(start_ns, end_ns)
