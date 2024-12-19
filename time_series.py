@@ -15,6 +15,8 @@ class TimeSeries(object):
 		self.data = data
 		self.unit = unit
 		self.better = better
+		if self.timestamp is None:
+			self.timestamp = []
 
 	def add_data(self, timestamp: list, data: list) -> None:
 		if len(timestamp) != len(data):
@@ -23,13 +25,14 @@ class TimeSeries(object):
 		self.data += data
 
 	def add_one_data(self, timestamp, data) -> None:
-		if self.timestamp is not None and timestamp is not None:
+		if len(self.timestamp) > 0 and timestamp is None:
+			message = f"Ignoring timestamp of series, original length of timestamp is {len(self.timestamp)}"
+			self.timestamp = []
+			raise ValueError(message)
+		if timestamp is not None and len(self.timestamp) == len(self.data):
 			self.timestamp.append(timestamp)
-		elif self.timestamp is not None and timestamp is None:
-			self.timestamp = None
-			print("Warning: ignoring timestamp")
 		self.data.append(data)
-		if self.timestamp is not None and len(self.timestamp) > 0 and len(self.data) != len(self.timestamp):
+		if len(self.timestamp) > 0 and len(self.data) != len(self.timestamp):
 			raise ValueError(f"Timestamp and data must have the same length, otherwise timestamp should be empty, adding timestamp {timestamp}, data {data}")
 
 	def count(self) -> int:
