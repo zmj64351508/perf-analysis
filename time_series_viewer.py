@@ -17,8 +17,11 @@ class TimeSeriesViewerManager:
 		self.parent = parent
 
 	def show(self):
-		if len(self.combined_all_series) > 0:
+		if len(self.combined_all_series) > 1:
 			self.combiled_viewers.append(TimeSeriesCombinedViewer(self.parent, self, self.combined_all_series))
+		elif len(self.combined_all_series) == 1:
+			for key in self.combined_all_series:
+				self.add_seperated_viewer(key, self.combined_all_series[key])
 		self.combined_all_series = {}
 		#plt.show()
 
@@ -286,6 +289,7 @@ class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
 		self.ax.legend(loc='upper left')
 		self.ax.set_xlabel(f"time ({self.time_unit})")
 		self.ax.set_ylabel(f"({self.unit})")
+		self.set_window_title("Combined Viewer")
 
 	def get_lines(self):
 		return self.lines
