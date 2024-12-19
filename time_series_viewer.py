@@ -12,12 +12,13 @@ class TimeSeriesViewerManager:
 	def __init__(self, parent):
 		self.seperated_viewer = {}
 		self.combined_all_series = {}
+		self.combiled_viewers = []
 		self.perodic_analysis_viewers = {}
 		self.parent = parent
 
 	def show(self):
 		if len(self.combined_all_series) > 0:
-			TimeSeriesCombinedViewer(self.parent, self, self.combined_all_series)
+			self.combiled_viewers.append(TimeSeriesCombinedViewer(self.parent, self, self.combined_all_series))
 		self.combined_all_series = {}
 		#plt.show()
 
@@ -25,6 +26,7 @@ class TimeSeriesViewerManager:
 		self.seperated_viewer = {}
 		self.combined_all_series = {}
 		self.perodic_analysis_viewers = {}
+		self.combiled_viewers = []
 		plt.close()
 
 	def save(self, path):
@@ -51,11 +53,9 @@ class TimeSeriesViewerManager:
 
 	def for_all_viewers(self, func):
 		for k, v in self.seperated_viewer.items():
-			if v is not self:
-				func(k, v)
-		for k, v in self.combined_all_series.items():
-			if v is not self:
-				func(k, v)
+			func(k, v)
+		for v in self.combiled_viewers:
+			func(None, v)
 
 class MarkCommand:
 	def __init__(self, axes, x):
