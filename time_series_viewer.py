@@ -270,7 +270,7 @@ class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
 	def __init__(self, parent, mgr, all_series):
 		super().__init__(parent, mgr)
 
-		self.time_unit = "ns"
+		self.time_unit = None
 		self.unit = ""
 		self.lines = []
 		self.x = []
@@ -278,7 +278,16 @@ class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
 		for name, series in all_series.items():
 			print(f"plotting {name}")
 			data = series.get_data_series()
-			timestamps = series.get_timestamp_series() if series.get_timestamp_series() is not None else np.arange(len(series.data))
+			timestamps = series.get_timestamp_series()
+			if timestamps is None:
+				timestamps = np.arange(len(series.data))
+				time_unit = "sample"
+			else:
+				time_unit = "ns"
+			if self.time_unit is None:
+				self.time_unit = time_unit
+			elif self.time_unit != time_unit:
+				raise ValueError(f"All series must have the same timestamp unit. {self.time_unit} vs. {time_unit}")
 			self.lines += self.ax.plot(timestamps, data, label=f"{name} ({series.get_unit()})", marker=config["plot.marker"])
 			self.x.append(timestamps)
 			self.y.append(data)
