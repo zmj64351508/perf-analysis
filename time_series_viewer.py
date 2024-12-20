@@ -1,7 +1,7 @@
 import os
 import tkinter as tk
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.figure as figure
 from matplotlib.widgets import SpanSelector
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -32,14 +32,12 @@ class TimeSeriesViewerManager:
 			for key in self.combined_all_series:
 				self.add_seperated_viewer(key, self.combined_all_series[key])
 		self.combined_all_series = {}
-		#plt.show()
 
 	def clear(self):
 		self.seperated_viewer = {}
 		self.combined_all_series = {}
 		self.perodic_analysis_viewers = {}
 		self.combiled_viewers = []
-		plt.close()
 
 	def save(self, path):
 		for key in sorted(self.seperated_viewer):
@@ -106,7 +104,8 @@ class TimeSeriesNavigationToolbar(NavigationToolbar2Tk):
 class TimeSeriesViewerBase(tk.Frame):
 	def __init__(self, parent, mgr):
 		super().__init__(parent)
-		self.fig, self.ax = plt.subplots(figsize=(15, 7))
+		self.fig = figure.Figure(figsize=(15, 7))
+		self.ax = self.fig.add_subplot(111)
 		self.mark_command = None
 		self.mark_command_history = []
 		self.canvas = FigureCanvasTkAgg(self.fig, master=self)
@@ -382,7 +381,7 @@ Min: {min_bw:.3f} {self.series.get_unit()}
 Max: {max_bw:.3f} {self.series.get_unit()}
 Avg: {mean_bw:.3f} {self.series.get_unit()}"""
 		self.stat_text.txt.set_text(text)
-		plt.draw()
+		self.fig.canvas.draw_idle()
 
 	def calculate_statistics(self, start_ns, end_ns):
 		if start_ns == end_ns:
