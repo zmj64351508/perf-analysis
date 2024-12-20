@@ -23,6 +23,7 @@ class TimeSeriesList(tk.Frame):
 		self.canvas.configure(yscrollcommand=scrollbar.set)
 		roll_frame.bind("<Configure>", self.configure)
 		roll_frame.bind("<MouseWheel>", self.on_mousewheel)
+		self.canvas.bind("<MouseWheel>", self.on_mousewheel)
 
 		self.check_vars = []
 		self.checks = []
