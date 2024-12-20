@@ -33,8 +33,12 @@ if __name__ == "__main__":
 	importer = ScenarioImporter()
 	for file in args.input_files:
 		for path in glob.glob(file, recursive=True):
-			print('Importing from ', path)
-			importer.import_from_path(path)
+			if os.path.isdir(path):
+				args.input_files.append(os.path.join(path, "*"))
+				continue
+			else:
+				print('Importing from ', path)
+				importer.import_from_path(path)
 	print('=' * 80)
 	viewer = []
 
