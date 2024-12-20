@@ -16,9 +16,18 @@ class TimeSeriesViewerManager:
 		self.perodic_analysis_viewers = {}
 		self.parent = parent
 
+	def new_parent_window(self):
+		if self.parent is None:
+			return None
+		else:
+			root = tk.Toplevel(self.parent)
+			return root
+
 	def show(self):
 		if len(self.combined_all_series) > 1:
-			self.combiled_viewers.append(TimeSeriesCombinedViewer(self.parent, self, self.combined_all_series))
+			viewer = TimeSeriesCombinedViewer(self.new_parent_window(), self, self.combined_all_series)
+			viewer.pack(fill=tk.BOTH, expand=True)
+			self.combiled_viewers.append(viewer)
 		elif len(self.combined_all_series) == 1:
 			for key in self.combined_all_series:
 				self.add_seperated_viewer(key, self.combined_all_series[key])
@@ -38,7 +47,9 @@ class TimeSeriesViewerManager:
 
 	def add_seperated_viewer(self, name, series):
 		if name not in self.seperated_viewer:
-			self.seperated_viewer[name] = TimeSeriesViewer(self.parent, self, name, series)
+			viewer = TimeSeriesViewer(self.new_parent_window(), self, name, series)
+			viewer.pack(fill=tk.BOTH, expand=True)
+			self.seperated_viewer[name] = viewer
 
 	def remove_seperated_viewer(self, name):
 		self.seperated_viewer.pop(name, None)
@@ -49,7 +60,9 @@ class TimeSeriesViewerManager:
 
 	def add_perodic_analysis(self, name, series):
 		if name not in self.perodic_analysis_viewers:
-			self.perodic_analysis_viewers[name] = PerodicAnalysisViewer(self.parent, self, name, series)
+			viewer = PerodicAnalysisViewer(self.new_parent_window(), self, name, series)
+			viewer.pack(fill=tk.BOTH, expand=True)
+			self.perodic_analysis_viewers[name] = viewer
 
 	def remove_perodic_analysis(self, name):
 		self.perodic_analysis_viewers.pop(name, None)
@@ -90,7 +103,7 @@ class TimeSeriesNavigationToolbar(NavigationToolbar2Tk):
 		self.data_x = x
 		self.data_y = y
 
-class TimeSeriesViewerBase(tk.Toplevel):
+class TimeSeriesViewerBase(tk.Frame):
 	def __init__(self, parent, mgr):
 		super().__init__(parent)
 		self.fig, self.ax = plt.subplots(figsize=(15, 7))
@@ -115,10 +128,9 @@ class TimeSeriesViewerBase(tk.Toplevel):
 			highlight_marker = 'o'
 		self.highlight, = self.ax.plot([], [], highlight_marker)
 		self.mgr = mgr
-		#self.window.protocol("WM_DELETE_WINDOW", self.on_close)
 
 	def set_window_title(self, title):
-		self.title(title)
+		self.winfo_toplevel().title(title)
 
 	def get_mgr(self):
 		return self.mgr
@@ -165,7 +177,7 @@ class TimeSeriesViewerBase(tk.Toplevel):
 			y_series = self.get_y_series(ax, i)
 			if x_series is None or y_series is None:
 				return
-			d = np.sqrt(((x_series - x) / xrange) ** 2 + ((y_series - y) / yrange) ** 2)
+			d = np.sqrt(((x_series - x) / xrange * self.winfo_width()) ** 2 + ((y_series - y) / yrange * self.winfo_height()) ** 2)
 			min_index[i] = np.argmin(d)
 			distances[i] = np.min(d)
 		series_index = np.argmin(distances)

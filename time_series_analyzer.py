@@ -58,9 +58,7 @@ if __name__ == "__main__":
 			print(f'{k} best  {all_series[k].calc_best():.2f}')
 		print('=' * 80)
 
-	root = tk.Tk()
-	viewer_mgr = TimeSeriesViewerManager(root)
-
+	viewer_mgr = TimeSeriesViewerManager(None)
 	if args.output != "":
 		args.output = os.path.normpath(args.output)
 		if not os.path.exists(args.output):
@@ -77,5 +75,7 @@ if __name__ == "__main__":
 		sys.exit(0)
 
 	if args.gui:
+		root = tk.Tk()
+		viewer_mgr = TimeSeriesViewerManager(root)
 		selector = TimeSeriesSelector(root, viewer_mgr, all_series)
 		root.mainloop()
