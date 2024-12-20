@@ -58,8 +58,8 @@ if __name__ == "__main__":
 			print(f'{k} best  {all_series[k].calc_best():.2f}')
 		print('=' * 80)
 
-	viewer_mgr = TimeSeriesViewerManager(None)
 	if args.output != "":
+		viewer_mgr = TimeSeriesViewerManager(None)
 		args.output = os.path.normpath(args.output)
 		if not os.path.exists(args.output):
 			os.makedirs(args.output)
@@ -70,8 +70,6 @@ if __name__ == "__main__":
 			viewer_mgr.add_seperated_viewer(k, v)
 			viewer_mgr.save(args.output)
 			viewer_mgr.clear()
-
-	if args.output != "":
 		sys.exit(0)
 
 	if args.gui:
