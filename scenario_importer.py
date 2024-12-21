@@ -233,6 +233,7 @@ class ScenarioImporter:
 			new_unit = ""
 			for key in self.all_series:
 				if re.search(pattern, key):
+					print(f'{new_name} add by {key}')
 					if len(new_series) == 0:
 						new_series = self.all_series[key].get_data_series()
 						new_timestamp = self.all_series[key].get_timestamp_series()
@@ -245,6 +246,6 @@ class ScenarioImporter:
 				self.all_series[new_name] = TimeSeries(timestamp, data, new_unit, Better.HIGHER)
 
 	def get_all_series(self):
-		self.sum_series('.*monitor\.total_bw', 'ddr.monitor.sum_total_bw')
+		self.sum_series(r'(?<!ddr)\.monitor\.total_bw', 'ddr.monitor.sum_total_bw')
 		self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
 		return self.all_series
