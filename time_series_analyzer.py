@@ -21,12 +21,21 @@ def filter_series(all_series, filter_string):
 	return filtered_series
 
 
+def slice_serices(all_series, start, end):
+	new_series = {}
+	for k, v in all_series.items():
+		new_series[k] = v.slice(start, end)
+	return new_series
+
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-o", "--output", type=str, default="", help="Output directory")
 	parser.add_argument("-g", "--gui", action="store_true", help="Show GUI")
 	parser.add_argument("-f", "--filter", type=str, default="", help="Series filter, regex supported")
 	parser.add_argument("-l", "--list", action="store_true", help="List name of series")
+	parser.add_argument("-s", "--start", type=int, default=None, help="start timestamp")
+	parser.add_argument("-e", "--end", type=int, default=None, help="end timestamp")
 	parser.add_argument('input_files', nargs='+', help='List of files to process.')
 	args = parser.parse_args()
 
@@ -44,6 +53,7 @@ if __name__ == "__main__":
 
 	all_series = importer.get_all_series()
 	all_series = filter_series(all_series, args.filter)
+	all_series = slice_serices(all_series, args.start, args.end)
 	if args.list:
 		print('Listing series:')
 		for k in sorted(all_series):

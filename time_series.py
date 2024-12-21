@@ -51,16 +51,44 @@ class TimeSeries(object):
 		return self.unit
 
 	def calc_average(self) -> float:
+		if len(self.data) == 0:
+			return 0
 		return sum(self.data) / len(self.data)
 
 	def calc_best(self):
+		if len(self.data) == 0:
+			return 0
 		if self.better == Better.HIGHER:
 			return max(self.data)
 		else:
 			return min(self.data)
 
 	def calc_worst(self):
+		if len(self.data) == 0:
+			return 0
 		if self.better == Better.HIGHER:
 			return min(self.data)
 		else:
 			return max(self.data)
+
+	def slice(self, start: int, end: int) -> "TimeSeries":
+		if start is None and end is None or start == end:
+			return self
+
+		timestamps = self.get_timestamp_series()
+		if timestamps is None:
+			timestamps = np.arange(len(self.data))
+
+		if start is None:
+			start = 0
+		if end is None:
+			end = timestamps[-1]
+		print(f'slice from {start} to {end}')
+
+		start_idx, end_idx = np.searchsorted(timestamps, (start, end))
+		end_idx = min(len(timestamps), end_idx)
+		print(f'slice index from {start_idx} to {end_idx}')
+		timestamp_segment = timestamps[start_idx:end_idx]
+		data_segment = self.data[start_idx:end_idx]
+
+		return TimeSeries(timestamp_segment, data_segment, self.unit, self.better)
