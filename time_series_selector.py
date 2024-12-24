@@ -14,13 +14,13 @@ class TimeSeriesList(tk.Frame):
 		self.canvas = tk.Canvas(self, highlightthickness=0)
 		self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 		
-		scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-		scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+		self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+		self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 		
 		roll_frame=tk.Frame(self.canvas)
 		roll_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 		self.canvas.create_window((0,0), window=roll_frame, anchor='nw')
-		self.canvas.configure(yscrollcommand=scrollbar.set)
+		self.canvas.configure(yscrollcommand=self.scrollbar.set)
 		roll_frame.bind("<Configure>", self.configure)
 		roll_frame.bind("<MouseWheel>", self.on_mousewheel)
 		self.canvas.bind("<MouseWheel>", self.on_mousewheel)
@@ -43,16 +43,20 @@ class TimeSeriesList(tk.Frame):
 			return
 		if visible:
 			self.checks_dict[name].grid()
-			self.checks_dict[name].bind_all("<MouseWheel>", self.on_mousewheel)
+			self.checks_dict[name].bind("<MouseWheel>", self.on_mousewheel)
 		else:
 			self.checks_dict[name].grid_remove()
-			self.checks_dict[name].unbind_all("<MouseWheel>")
+			self.checks_dict[name].unbind("<MouseWheel>")
+		self.canvas.yview_moveto(0)
 
 	def configure(self, event):
 		self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
 	def on_mousewheel(self, event):
-		self.canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+		current_position = self.canvas.yview()[0]
+		delta = -1 * int(event.delta / 120)
+		if (current_position > 0 and delta < 0) or (current_position < 1 and delta > 0):
+			self.canvas.yview_scroll(delta, "units")
 	
 	def select_all(self):
 		for i, chk in enumerate(self.checks):
