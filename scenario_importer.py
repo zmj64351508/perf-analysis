@@ -226,6 +226,14 @@ class ScenarioImporter:
 					print("  timestamp:", timestamp)
 					print("  content:", line)
 
+	def pad_and_add(self, a, b):
+		max_length = max(len(a), len(b))
+		new_a = np.zeros(max_length, dtype=a.dtype)
+		new_b = np.zeros(max_length, dtype=b.dtype)
+		new_a[:len(a)] = a
+		new_b[:len(b)] = b
+		return new_a + new_b
+
 	def sum_series(self, pattern, new_name):
 		if new_name not in self.all_series:
 			new_series = []
@@ -239,7 +247,7 @@ class ScenarioImporter:
 						new_timestamp = self.all_series[key].get_timestamp_series()
 						new_unit = self.all_series[key].get_unit()
 					else:
-						new_series += self.all_series[key].get_data_series()
+						new_series = self.pad_and_add(new_series, self.all_series[key].get_data_series())
 			if len(new_series) > 0:
 				timestamp = new_timestamp.tolist() if new_timestamp is not None else None
 				data = new_series.tolist() if new_series is not None else None
