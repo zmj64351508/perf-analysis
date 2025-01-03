@@ -372,14 +372,15 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 		self.get_mgr().remove_seperated_viewer(self.name)
 
 	def show_statistics(self, start_ns, end_ns):
-		min_bw, max_bw, mean_bw, start, end = self.calculate_statistics(start_ns, end_ns)
+		min_bw, max_bw, mean_bw, std_bw, start, end = self.calculate_statistics(start_ns, end_ns)
 		text = f"""Statistics:
 Start: {start:.3f} {self.time_unit}
 End: {end:.3f} {self.time_unit}
 Dur: {end-start:.3f} {self.time_unit}
 Min: {min_bw:.3f} {self.series.get_unit()}
 Max: {max_bw:.3f} {self.series.get_unit()}
-Avg: {mean_bw:.3f} {self.series.get_unit()}"""
+Avg: {mean_bw:.3f} {self.series.get_unit()}
+Std: {std_bw:.3f}"""
 		self.stat_text.txt.set_text(text)
 		self.fig.canvas.draw_idle()
 
@@ -400,8 +401,9 @@ Avg: {mean_bw:.3f} {self.series.get_unit()}"""
 		min_bandwidth = np.min(data_segment)
 		max_bandwidth = np.max(data_segment)
 		mean_bandwidth = np.mean(data_segment)
+		std_bandwidth = np.std(data_segment)
 		
-		return min_bandwidth, max_bandwidth, mean_bandwidth, self.timestamps[start], self.timestamps[end-1]
+		return min_bandwidth, max_bandwidth, mean_bandwidth, std_bandwidth, self.timestamps[start], self.timestamps[end-1]
 
 	def save(self, path, *args, **kargs):
 		self.fig.savefig(os.path.join(path, f'{self.name}.png'), *args, **kargs)

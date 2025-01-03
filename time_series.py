@@ -50,6 +50,9 @@ class TimeSeries(object):
 	def get_unit(self) -> str:
 		return self.unit
 
+	def get_better(self) -> Better:
+		return self.better
+
 	def calc_average(self) -> float:
 		if len(self.data) == 0:
 			return 0
@@ -71,6 +74,11 @@ class TimeSeries(object):
 		else:
 			return max(self.data)
 
+	def calc_std(self) -> float:
+		if len(self.data) == 0:
+			return 0
+		return np.std(self.data)
+
 	def slice(self, start: int, end: int) -> "TimeSeries":
 		if start is None and end is None or start == end:
 			return self
@@ -91,4 +99,4 @@ class TimeSeries(object):
 		timestamp_segment = timestamps[start_idx:end_idx]
 		data_segment = self.data[start_idx:end_idx]
 
-		return TimeSeries(timestamp_segment, data_segment, self.unit, self.better)
+		return TimeSeries(timestamp_segment, data_segment, self.unit, self.better)	

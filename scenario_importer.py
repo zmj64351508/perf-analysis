@@ -298,6 +298,7 @@ class ScenarioImporter:
 	def get_all_series(self):
 		self.sum_series(r'(?<!ddr)\.monitor\.total_bw', 'ddr.monitor.sum_total_bw')
 		self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
+		#self.sum_series('a720.*memcpy', 'a720.sum.memcpy')
 		if 'a720.PNC.cpu_utilization' in self.all_series:
 			self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw', 'a720.PNC.monitor.sum_total_bw')
 		if 'a720.PNC.perf.ipc' in self.all_series and 'a720.PNC.perf.cpus':

@@ -8,6 +8,7 @@ from time_series_viewer import TimeSeriesViewerManager
 from config import config
 from time_series_selector import TimeSeriesSelector
 import csv_exporter
+import series_importer_exporter
 
 
 def filter_series(all_series, filter_string):
@@ -36,10 +37,16 @@ if __name__ == "__main__":
 	parser.add_argument("-l", "--list", action="store_true", help="List name of series")
 	parser.add_argument("-s", "--start", type=int, default=None, help="start timestamp")
 	parser.add_argument("-e", "--end", type=int, default=None, help="end timestamp")
+	parser.add_argument("-c", "--convert", type=str, nargs='?', default="", help="Convert to standard data format, argument is prefix")
+	parser.add_argument("-i", "--input_format", type=str, default="scenario", help="Input format (candidates: scenario, series)")
 	parser.add_argument('input_files', nargs='+', help='List of files to process.')
 	args = parser.parse_args()
 
-	importer = ScenarioImporter()
+	if args.input_format == "series":
+		importer = series_importer_exporter.SeriesImporter()
+	else:
+		importer = ScenarioImporter()
+	
 	for file in args.input_files:
 		for path in glob.glob(file, recursive=True):
 			if os.path.isdir(path):
@@ -60,17 +67,9 @@ if __name__ == "__main__":
 			print(k)
 		sys.exit(0)
 
-	for k in sorted(all_series):
-		print(f'{k} count {all_series[k].count()}')
-		if all_series[k].get_unit() == "%":
-			print(f'{k} avg   {all_series[k].calc_average()*100:.2f}%')
-			print(f'{k} worst {all_series[k].calc_worst()*100:.2f}%')
-			print(f'{k} best  {all_series[k].calc_best()*100:.2f}%')
-		else:
-			print(f'{k} avg   {all_series[k].calc_average():.2f}')
-			print(f'{k} worst {all_series[k].calc_worst():.2f}')
-			print(f'{k} best  {all_series[k].calc_best():.2f}')
-		print('=' * 80)
+	if args.convert != "":
+		series_importer_exporter.save(args.output, all_series, args.convert)
+		sys.exit(0)
 
 	if args.output != "":
 		viewer_mgr = TimeSeriesViewerManager(None)
@@ -91,3 +90,19 @@ if __name__ == "__main__":
 		viewer_mgr = TimeSeriesViewerManager(root)
 		selector = TimeSeriesSelector(root, viewer_mgr, all_series)
 		root.mainloop()
+		sys.exit(0)
+
+	for k in sorted(all_series):
+		print(f'{k} count {all_series[k].count()}')
+		if all_series[k].get_unit() == "%":
+			print(f'{k} avg   {all_series[k].calc_average()*100:.2f}%')
+			print(f'{k} worst {all_series[k].calc_worst()*100:.2f}%')
+			print(f'{k} best  {all_series[k].calc_best()*100:.2f}%')
+			print(f'{k} std  {all_series[k].calc_std()*100:.2f}%')
+		else:
+			print(f'{k} avg   {all_series[k].calc_average():.2f}')
+			print(f'{k} worst {all_series[k].calc_worst():.2f}')
+			print(f'{k} best  {all_series[k].calc_best():.2f}')
+			print(f'{k} std   {all_series[k].calc_std():.2f}')
+		print('=' * 80)
+
