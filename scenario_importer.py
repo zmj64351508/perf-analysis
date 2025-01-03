@@ -47,6 +47,14 @@ class ScenarioImporter:
 						new_line = True
 						ValueError(f"Failed to parse line: {line}")
 
+					line = line.rstrip()
+					if line.endswith('\\010'):
+						line = line[:-4]
+					line = line.rstrip()
+					if line.endswith('\\013'):
+						line = line[:-4]
+					line = line.rstrip()
+
 					search = re.search(r'^(\[(\d+)\])?(.*)', line)
 					if search:
 						if search.group(2) != None:
@@ -81,6 +89,7 @@ class ScenarioImporter:
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], 'cycle', Better.LOWER)
 						self.all_series[key].add_one_data(timestamp, vpu_cycle)
+						continue
 					# bpu
 					search = re.search(r'BPU model\[(.*)\] sum: read_bw\[(\d+)\] MB/s; write_bw\[(\d+)\] MB/s', line)
 					if search:
@@ -144,6 +153,30 @@ class ScenarioImporter:
 							self.all_series[key] = TimeSeries([], [], '%', Better.LOWER)
 						self.all_series[key].add_one_data(timestamp, busy)
 						continue
+					search = re.search(',(instructions|cycles|cpu-clock),', line)
+					if search:
+						perf_output = line.strip().split(',')
+						perf_timestamp = float(perf_output[0]) * 1e9
+						perf_counter = float(perf_output[1])
+						perf_name = perf_output[3]
+						metric = float(perf_output[6])
+						metric_unit = perf_output[7]
+						#key = f'a720.PNC.perf.{perf_name}'
+						#if key not in self.all_series:
+						#	self.all_series[key] = TimeSeries([], [], 'count', Better.HIGHER)
+						#self.all_series[key].add_one_data(int(perf_timestamp), perf_counter)
+						metric_key = ""
+						if metric_unit == 'insn per cycle':
+							metric_key = 'a720.PNC.perf.ipc'
+							metric_unit = 'ipc'
+						elif metric_unit == "CPUs utilized":
+							metric_key = 'a720.PNC.perf.cpus'
+							metric_unit = 'count'
+						if metric_key != "":
+							if metric_key not in self.all_series:
+								self.all_series[metric_key] = TimeSeries([], [], metric_unit, Better.HIGHER)
+							self.all_series[metric_key].add_one_data(int(perf_timestamp), metric)
+						continue
 					# cam
 					search = re.search('(?:\[0m)?([a-z]+)(\d+) pipe info:', line)
 					if search:
@@ -192,6 +225,15 @@ class ScenarioImporter:
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, bw)
+						continue
+					# gpua
+					search = re.search(r'handle_output_ri.*diff:(\w+)', line)
+					if search:
+						fps = 1e9 / int("0x" + search.group(1), 16)
+						key = "gpua.fps"
+						if key not in self.all_series:
+							self.all_series[key] = TimeSeries([], [], fps, Better.HIGHER)
+						self.all_series[key].add_one_data(timestamp, fps)
 						continue
 					# bandwidth monitor
 					search = re.search(r'\*\*(Average|Full) Bandwidth\*\*', line)
@@ -256,4 +298,17 @@ class ScenarioImporter:
 	def get_all_series(self):
 		self.sum_series(r'(?<!ddr)\.monitor\.total_bw', 'ddr.monitor.sum_total_bw')
 		self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
+		if 'a720.PNC.cpu_utilization' in self.all_series:
+			self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw', 'a720.PNC.monitor.sum_total_bw')
+		if 'a720.PNC.perf.ipc' in self.all_series and 'a720.PNC.perf.cpus':
+			ipc = self.all_series['a720.PNC.perf.ipc'].get_data_series()
+			ipc_ts = self.all_series['a720.PNC.perf.ipc'].get_timestamp_series()
+			cpus = self.all_series['a720.PNC.perf.cpus'].get_data_series()
+			cpus_ts = self.all_series['a720.PNC.perf.cpus'].get_timestamp_series()
+			ipc_unit = self.all_series['a720.PNC.perf.ipc'].get_unit()
+			if np.array_equal(cpus_ts, ipc_ts):
+				new_ipc = ipc * cpus
+				self.all_series['a720.PNC.perf.ipc_total'] = TimeSeries(ipc_ts, new_ipc, ipc_unit, Better.HIGHER)
+				self.all_series.pop('a720.PNC.perf.cpus')
+				self.all_series.pop('a720.PNC.perf.ipc')
 		return self.all_series
