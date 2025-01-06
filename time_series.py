@@ -58,6 +58,16 @@ class TimeSeries(object):
 			return 0
 		return sum(self.data) / len(self.data)
 
+	def calc_max(self):
+		if len(self.data) == 0:
+			return 0
+		return max(self.data)
+
+	def calc_min(self):
+		if len(self.data) == 0:
+			return 0
+		return min(self.data)
+
 	def calc_best(self):
 		if len(self.data) == 0:
 			return 0

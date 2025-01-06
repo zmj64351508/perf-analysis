@@ -108,14 +108,42 @@ class TimeSeriesViewerBase(tk.Frame):
 		self.ax = self.fig.add_subplot(111)
 		self.mark_command = None
 		self.mark_command_history = []
-		self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+
+		self.panel_win = tk.PanedWindow(self, orient=tk.HORIZONTAL, sashrelief=tk.RAISED)
+		self.panel_win.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+		self.left_frame = tk.Frame(self.panel_win)
+		self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+		self.right_frame = tk.Frame(self.panel_win)
+		self.right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
+
+		self.panel_win.add(self.left_frame)
+		self.panel_win.add(self.right_frame)
+		self.panel_win.paneconfig(self.left_frame, stretch="always")
+		self.panel_win.paneconfig(self.right_frame, stretch="never")
+
+		self.canvas = FigureCanvasTkAgg(self.fig, master=self.left_frame)
 		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 		self.canvas.draw()
-		self.toolbar = TimeSeriesNavigationToolbar(self.canvas, self)
+		self.toolbar = TimeSeriesNavigationToolbar(self.canvas, self.left_frame)
 		self.toolbar.update()
 		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 		self.canvas.mpl_connect("button_press_event", self.on_right_click)
 		self.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
+		self.info = tk.Text(self.right_frame, borderwidth=0)
+		self.info.pack(side=tk.TOP, anchor=tk.NW, fill=tk.BOTH, padx=4, expand=True)
+		info_menu = tk.Menu(self.info, tearoff=0)
+		info_menu.add_command(label="Copy", command=lambda: self.info.event_generate("<<Copy>>"))
+		info_menu.add_command(label="Select All", command=lambda: self.info.event_generate("<<SelectAll>>"))
+
+		def info_menu_show(e):
+			self.info.focus_set()
+			info_menu.post(e.x_root, e.y_root)
+		self.info.bind("<Button-3>", info_menu_show)
+		self.info.bind("<Button-2>", info_menu_show)
+		self.info.config(state=tk.DISABLED)
+
 		self.popup_menu = tk.Menu(self, tearoff=0)
 		self.popup_menu.add_command(label="Sync scale", command=self.menu_sync_scale)
 		self.popup_menu.add_command(label="Mark", command=self.menu_mark)
@@ -133,6 +161,15 @@ class TimeSeriesViewerBase(tk.Frame):
 
 	def get_mgr(self):
 		return self.mgr
+
+	def show_infomation(self, text):
+		self.info.config(state=tk.NORMAL)
+		self.info.delete('1.0', tk.END)
+		self.info.insert(tk.END, text)
+		lines = text.split("\n")
+		max_line_length = max([len(line) for line in lines]) if lines else 0
+		self.info.config(width=max_line_length+5)
+		self.info.config(state=tk.DISABLED)
 
 	def mark(self, x):
 		command = MarkCommand(self.fig.axes, x)
@@ -342,9 +379,6 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 
 		self.set_window_title(self.name)
 		self.fig.canvas.mpl_connect('close_event', self.on_close)
-		self.stat_text = AnchoredText("", loc="upper right", bbox_transform=self.ax.transAxes, prop={'alpha': 0.7}, )
-
-		self.ax.add_artist(self.stat_text)
 		
 		self.line, = self.ax.plot(self.timestamps, self.data, label=f"{name} ({series.get_unit()})", marker=config["plot.marker"])
 		self.ax.set_xlabel(f"time ({self.time_unit})")
@@ -381,29 +415,22 @@ Min: {min_bw:.3f} {self.series.get_unit()}
 Max: {max_bw:.3f} {self.series.get_unit()}
 Avg: {mean_bw:.3f} {self.series.get_unit()}
 Std: {std_bw:.3f}"""
-		self.stat_text.txt.set_text(text)
-		self.fig.canvas.draw_idle()
+		self.show_infomation(text)
 
 	def calculate_statistics(self, start_ns, end_ns):
-		if start_ns == end_ns:
+		sliced_series = self.series.slice(start_ns, end_ns)
+		min_bandwidth = sliced_series.calc_min()
+		max_bandwidth = sliced_series.calc_max()
+		mean_bandwidth = sliced_series.calc_average()
+		std_bandwidth = sliced_series.calc_std()
+		sliced_timestamp = sliced_series.get_timestamp_series()
+		if sliced_timestamp is None:
 			start = 0
-			end = len(self.timestamps)
-			data_segment = self.data
+			end = 0
 		else:
-			start, end = np.searchsorted(self.timestamps, (start_ns, end_ns))
-			end = min(len(self.timestamps), end)
-			data_segment = self.data[start:end]
-			if len(data_segment) == 0:
-				start = 0
-				end = len(self.timestamps)
-				data_segment = self.data
-		
-		min_bandwidth = np.min(data_segment)
-		max_bandwidth = np.max(data_segment)
-		mean_bandwidth = np.mean(data_segment)
-		std_bandwidth = np.std(data_segment)
-		
-		return min_bandwidth, max_bandwidth, mean_bandwidth, std_bandwidth, self.timestamps[start], self.timestamps[end-1]
+			start = sliced_timestamp[0]
+			end = sliced_timestamp[-1]
+		return min_bandwidth, max_bandwidth, mean_bandwidth, std_bandwidth, start, end 
 
 	def save(self, path, *args, **kargs):
 		self.fig.savefig(os.path.join(path, f'{self.name}.png'), *args, **kargs)

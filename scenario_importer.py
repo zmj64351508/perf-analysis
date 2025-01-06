@@ -147,7 +147,7 @@ class ScenarioImporter:
 						# skip the first 2 seconds
 						if mpstat_cnt <= 2:
 							continue
-						busy = 1 - float(search.group(9)) / 100
+						busy = 100 - float(search.group(9))
 						key = 'a720.PNC.cpu_utilization'
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], '%', Better.LOWER)
@@ -232,7 +232,7 @@ class ScenarioImporter:
 						fps = 1e9 / int("0x" + search.group(1), 16)
 						key = "gpua.fps"
 						if key not in self.all_series:
-							self.all_series[key] = TimeSeries([], [], fps, Better.HIGHER)
+							self.all_series[key] = TimeSeries([], [], "fps", Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, fps)
 						continue
 					# bandwidth monitor

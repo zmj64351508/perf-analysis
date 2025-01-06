@@ -94,15 +94,10 @@ if __name__ == "__main__":
 
 	for k in sorted(all_series):
 		print(f'{k} count {all_series[k].count()}')
-		if all_series[k].get_unit() == "%":
-			print(f'{k} avg   {all_series[k].calc_average()*100:.2f}%')
-			print(f'{k} worst {all_series[k].calc_worst()*100:.2f}%')
-			print(f'{k} best  {all_series[k].calc_best()*100:.2f}%')
-			print(f'{k} std  {all_series[k].calc_std()*100:.2f}%')
-		else:
-			print(f'{k} avg   {all_series[k].calc_average():.2f}')
-			print(f'{k} worst {all_series[k].calc_worst():.2f}')
-			print(f'{k} best  {all_series[k].calc_best():.2f}')
-			print(f'{k} std   {all_series[k].calc_std():.2f}')
+		unit = all_series[k].get_unit()
+		print(f'{k} avg   {all_series[k].calc_average():.2f} {unit}')
+		print(f'{k} worst {all_series[k].calc_worst():.2f} {unit}')
+		print(f'{k} best  {all_series[k].calc_best():.2f} {unit}')
+		print(f'{k} std  {all_series[k].calc_std():.2f} {unit}')
 		print('=' * 80)
 
