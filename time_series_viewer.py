@@ -25,7 +25,7 @@ class TimeSeriesViewerManager:
 
 	def show(self):
 		if len(self.combined_all_series) > 1:
-			viewer = TimeSeriesCombinedViewer(self.new_parent_window(), self, self.combined_all_series)
+			viewer = TimeSeriesViewer(self.new_parent_window(), self, self.combined_all_series)
 			viewer.pack(fill=tk.BOTH, expand=True)
 			self.combiled_viewers.append(viewer)
 		elif len(self.combined_all_series) == 1:
@@ -45,7 +45,7 @@ class TimeSeriesViewerManager:
 
 	def add_seperated_viewer(self, name, series):
 		if name not in self.seperated_viewer:
-			viewer = TimeSeriesViewer(self.new_parent_window(), self, name, series)
+			viewer = TimeSeriesViewer(self.new_parent_window(), self, {name:series})
 			viewer.pack(fill=tk.BOTH, expand=True)
 			self.seperated_viewer[name] = viewer
 
@@ -314,7 +314,7 @@ class PerodicAnalysisViewer(TimeSeriesViewerBase):
 		return self.y
 
 		
-class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
+class TimeSeriesViewer(TimeSeriesViewerBase):
 	def __init__(self, parent, mgr, all_series):
 		super().__init__(parent, mgr)
 
@@ -323,6 +323,7 @@ class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
 		self.lines = []
 		self.x = []
 		self.y = []
+		self.all_series = all_series
 		for name, series in all_series.items():
 			print(f"plotting {name}")
 			data = series.get_data_series()
@@ -346,7 +347,16 @@ class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
 		self.ax.legend(loc='upper left')
 		self.ax.set_xlabel(f"time ({self.time_unit})")
 		self.ax.set_ylabel(f"({self.unit})")
-		self.set_window_title("Combined Viewer")
+
+		if len(self.all_series) == 1:
+			for key in self.all_series:
+				self.set_window_title(key)
+		else:
+			self.set_window_title("Combined Viewer")
+
+		self.span = SpanSelector(self.ax, self.on_select, 'horizontal', useblit=True,
+									props=dict(alpha=0.3, facecolor='blue'), interactive=True, button=1)
+		self.show_statistics(0, 0)
 
 	def get_lines(self):
 		return self.lines
@@ -357,68 +367,11 @@ class TimeSeriesCombinedViewer(TimeSeriesViewerBase):
 	def get_y_series(self, axes, index):
 		return self.y[index]
 
-
-class TimeSeriesViewer(TimeSeriesViewerBase):
-	def __init__(self, parent, mgr, name, series):
-		self.series = series
-		self.data = series.get_data_series()
-		if series.get_unit() == "%":
-			self.data = self.data * 100
-		self.timestamps = series.get_timestamp_series()
-		if self.timestamps is None:
-			self.time_unit = "sample"
-			self.timestamps = np.arange(len(series.data))
-		else:
-			self.time_unit = "ns"
-
-		if (len(self.timestamps) != len(self.data)):
-			raise ValueError(f"Time and data series must have the same length. {len(self.timestamps)} vs. {len(series.data)}")
-
-		self.name = name
-		super().__init__(parent, mgr)
-
-		self.set_window_title(self.name)
-		self.fig.canvas.mpl_connect('close_event', self.on_close)
-		
-		self.line, = self.ax.plot(self.timestamps, self.data, label=f"{name} ({series.get_unit()})", marker=config["plot.marker"])
-		self.ax.set_xlabel(f"time ({self.time_unit})")
-		self.ax.set_ylabel(f"{name} ({series.get_unit()})")
-		self.ax.set_title(f"{self.name} over time")
-		self.ax.legend(loc='upper left')
-		
-		self.span = SpanSelector(self.ax, self.on_select, 'horizontal', useblit=True,
-									props=dict(alpha=0.3, facecolor='blue'), interactive=True, button=1)
-		self.show_statistics(0, 0)
-
-	def get_lines(self):
-		return [self.line]
-
-	def get_x_series(self, axes, index):
-		return self.timestamps
-
-	def get_y_series(self, axes, index):
-		return self.data
-
 	def on_select(self, xmin, xmax):
 		self.show_statistics(xmin, xmax)
 
-	def on_close(self, event):
-		self.get_mgr().remove_seperated_viewer(self.name)
-
-	def show_statistics(self, start_ns, end_ns):
-		min_bw, max_bw, mean_bw, std_bw, start, end = self.calculate_statistics(start_ns, end_ns)
-		text = f"""Statistics:
-Start: {start:.3f} {self.time_unit}
-End: {end:.3f} {self.time_unit}
-Dur: {end-start:.3f} {self.time_unit}
-Min: {min_bw:.3f} {self.series.get_unit()}
-Max: {max_bw:.3f} {self.series.get_unit()}
-Avg: {mean_bw:.3f} {self.series.get_unit()}
-Std: {std_bw:.3f}"""
-		self.show_infomation(text)
-
-	def calculate_statistics(self, start_ns, end_ns):
-		sliced_series = self.series.slice(start_ns, end_ns)
+	def calculate_statistics(self, series, start_ns, end_ns):
+		sliced_series = series.slice(start_ns, end_ns)
 		min_bandwidth = sliced_series.calc_min()
 		max_bandwidth = sliced_series.calc_max()
 		mean_bandwidth = sliced_series.calc_average()
@@ -432,5 +385,27 @@ Std: {std_bw:.3f}"""
 			end = sliced_timestamp[-1]
 		return min_bandwidth, max_bandwidth, mean_bandwidth, std_bandwidth, start, end 
 
+	def show_statistics(self, start_ns, end_ns):
+		text = "Statistics:\n"
+		for key in sorted(self.all_series):
+			series = self.all_series[key]
+			min_bw, max_bw, mean_bw, std_bw, start, end = self.calculate_statistics(series, start_ns, end_ns)
+			text += f"""
+Series: {key}
+Start: {start:.3f} {self.time_unit}
+End: {end:.3f} {self.time_unit}
+Dur: {end-start:.3f} {self.time_unit}
+Min: {min_bw:.3f} {series.get_unit()}
+Max: {max_bw:.3f} {series.get_unit()}
+Avg: {mean_bw:.3f} {series.get_unit()}
+Std: {std_bw:.3f}
+"""
+		self.show_infomation(text)
+
 	def save(self, path, *args, **kargs):
-		self.fig.savefig(os.path.join(path, f'{self.name}.png'), *args, **kargs)
+		if len(self.all_series) == 1:
+			for key in self.all_series:
+				name = key
+		else:
+			name = "combined"
+		self.fig.savefig(os.path.join(path, f'{name}.png'), *args, **kargs)
