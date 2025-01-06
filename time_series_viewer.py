@@ -114,13 +114,9 @@ class TimeSeriesViewerBase(tk.Frame):
 
 		self.left_frame = tk.Frame(self.panel_win)
 		self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-		self.right_frame = tk.Frame(self.panel_win)
-		self.right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
-
 		self.panel_win.add(self.left_frame)
-		self.panel_win.add(self.right_frame)
 		self.panel_win.paneconfig(self.left_frame, stretch="always")
-		self.panel_win.paneconfig(self.right_frame, stretch="never")
+		self.right_frame = tk.Frame(self.panel_win)
 
 		self.canvas = FigureCanvasTkAgg(self.fig, master=self.left_frame)
 		self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -132,7 +128,11 @@ class TimeSeriesViewerBase(tk.Frame):
 		self.canvas.mpl_connect('motion_notify_event', self.on_motion)
 
 		self.info = tk.Text(self.right_frame, borderwidth=0)
-		self.info.pack(side=tk.TOP, anchor=tk.NW, fill=tk.BOTH, padx=4, expand=True)
+		self.info.pack(side=tk.LEFT, anchor=tk.NW, fill=tk.BOTH, padx=4, expand=True)
+		scrollbar = tk.Scrollbar(self.right_frame, command=self.info.yview)
+		scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+		self.info.config(yscrollcommand=scrollbar.set)
+
 		info_menu = tk.Menu(self.info, tearoff=0)
 		info_menu.add_command(label="Copy", command=lambda: self.info.event_generate("<<Copy>>"))
 		info_menu.add_command(label="Select All", command=lambda: self.info.event_generate("<<SelectAll>>"))
@@ -162,7 +162,15 @@ class TimeSeriesViewerBase(tk.Frame):
 	def get_mgr(self):
 		return self.mgr
 
-	def show_infomation(self, text):
+	def show_information_pane(self):
+		self.right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
+		self.panel_win.add(self.right_frame)
+		self.panel_win.paneconfig(self.right_frame, stretch="never")
+	
+	def hide_information_pane(self):
+		self.right_frame.unpack()
+
+	def show_information(self, text):
 		self.info.config(state=tk.NORMAL)
 		self.info.delete('1.0', tk.END)
 		self.info.insert(tk.END, text)
@@ -328,11 +336,7 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 			print(f"plotting {name}")
 			data = series.get_data_series()
 			timestamps = series.get_timestamp_series()
-			if timestamps is None:
-				timestamps = np.arange(len(series.data))
-				time_unit = "sample"
-			else:
-				time_unit = "ns"
+			time_unit = series.get_timestamp_unit()
 			if self.time_unit is None:
 				self.time_unit = time_unit
 			elif self.time_unit != time_unit:
@@ -356,6 +360,7 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 
 		self.span = SpanSelector(self.ax, self.on_select, 'horizontal', useblit=True,
 									props=dict(alpha=0.3, facecolor='blue'), interactive=True, button=1)
+		self.show_information_pane()
 		self.show_statistics(0, 0)
 
 	def get_lines(self):
@@ -377,30 +382,33 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 		mean_bandwidth = sliced_series.calc_average()
 		std_bandwidth = sliced_series.calc_std()
 		sliced_timestamp = sliced_series.get_timestamp_series()
-		if sliced_timestamp is None:
+		if len(sliced_timestamp) == 0:
 			start = 0
 			end = 0
+			cnt = 0
 		else:
 			start = sliced_timestamp[0]
 			end = sliced_timestamp[-1]
-		return min_bandwidth, max_bandwidth, mean_bandwidth, std_bandwidth, start, end 
+			cnt = len(sliced_timestamp)
+		return min_bandwidth, max_bandwidth, mean_bandwidth, std_bandwidth, start, end, cnt
 
 	def show_statistics(self, start_ns, end_ns):
 		text = "Statistics:\n"
 		for key in sorted(self.all_series):
 			series = self.all_series[key]
-			min_bw, max_bw, mean_bw, std_bw, start, end = self.calculate_statistics(series, start_ns, end_ns)
+			min_bw, max_bw, mean_bw, std_bw, start, end, cnt = self.calculate_statistics(series, start_ns, end_ns)
 			text += f"""
-Series: {key}
-Start: {start:.3f} {self.time_unit}
-End: {end:.3f} {self.time_unit}
-Dur: {end-start:.3f} {self.time_unit}
-Min: {min_bw:.3f} {series.get_unit()}
-Max: {max_bw:.3f} {series.get_unit()}
-Avg: {mean_bw:.3f} {series.get_unit()}
-Std: {std_bw:.3f}
+{key}
+Start: {start} {self.time_unit}
+  End: {end} {self.time_unit}
+  Dur: {end-start} {self.time_unit}
+  Cnt: {cnt} sample
+  Min: {min_bw:.2f} {series.get_unit()}
+  Max: {max_bw:.2f} {series.get_unit()}
+  Avg: {mean_bw:.2f} {series.get_unit()}
+  Std: {std_bw:.2f} {series.get_unit()}
 """
-		self.show_infomation(text)
+		self.show_information(text)
 
 	def save(self, path, *args, **kargs):
 		if len(self.all_series) == 1:

@@ -42,13 +42,19 @@ class TimeSeries(object):
 		if self.timestamp is not None and len(self.timestamp) > 0:
 			return np.array(self.timestamp)
 		else:
-			return None
+			return np.arange(len(self.data))
 
 	def get_data_series(self) -> np.array:
 		return np.array(self.data)
 
 	def get_unit(self) -> str:
 		return self.unit
+
+	def get_timestamp_unit(self) -> str:
+		if self.timestamp is not None and len(self.timestamp) > 0:
+			return "ns"
+		else:
+			return "sample"
 
 	def get_better(self) -> Better:
 		return self.better
