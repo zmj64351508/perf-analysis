@@ -9,6 +9,13 @@ class ScenarioImporter:
 		pass
 
 	def import_from_path(self, path: str):
+		zebu_log = False
+		with open(path, "r") as f:
+			for l in f.readlines(10):
+				if re.search(r'TX>.*RX>', l):
+					zebu_log = True
+					break
+
 		with open(path, "r") as f:
 			bpu_model = ""
 			vpu_frame = None
@@ -25,45 +32,49 @@ class ScenarioImporter:
 			for l in f.readlines():
 				raw_lineno += 1
 				try:
-					search = re.search(r'RX> (.*)', l)
-					if search and search.group(1) != None:
-						# skip error data
-						if search.group(1).strip().startswith("Erroneous data"):
-							continue
-						if new_line:
-							line = search.group(1)
+					if zebu_log:
+						search = re.search(r'RX> (.*)', l)
+						if search and search.group(1) != None:
+							# skip error data
+							if search.group(1).strip().startswith("Erroneous data"):
+								continue
+							if new_line:
+								line = search.group(1)
+							else:
+								line += search.group(1)
+							if line.rstrip().endswith("\\010"):
+								lineno += 1
+								#if lineno <= 10:
+								#	print(line)
+								new_line = True
+							else:
+								new_line = False
+								continue
 						else:
-							line += search.group(1)
-						if line.rstrip().endswith("\\010"):
-							lineno += 1
-							#if lineno <= 10:
-							#	print(line)
+							line = ""
 							new_line = True
-						else:
-							new_line = False
-							continue
-					else:
-						line = ""
-						new_line = True
-						ValueError(f"Failed to parse line: {line}")
+							ValueError(f"Failed to parse line: {line}")
 
-					line = line.rstrip()
-					if line.endswith('\\010'):
-						line = line[:-4]
-					line = line.rstrip()
-					if line.endswith('\\013'):
-						line = line[:-4]
-					line = line.rstrip()
+						line = line.rstrip()
+						if line.endswith('\\010'):
+							line = line[:-4]
+						line = line.rstrip()
+						if line.endswith('\\013'):
+							line = line[:-4]
+						line = line.rstrip()
 
-					search = re.search(r'^(\[(\d+)\])?(.*)', line)
-					if search:
-						if search.group(2) != None:
-							timestamp = int(search.group(2))
+						search = re.search(r'^(\[(\d+)\])?(.*)', line)
+						if search:
+							if search.group(2) != None:
+								timestamp = int(search.group(2))
+							else:
+								timestamp = None
+							line = search.group(3)
 						else:
-							timestamp = None
-						line = search.group(3)
+							ValueError(f"Failed to parse line: {line}")
 					else:
-						ValueError(f"Failed to parse line: {line}")
+						line = l.rstrip()
+						timestamp = None
 					# vpu
 					search = re.search(r'Start testing frame (\d+)', line)
 					if search:
@@ -153,7 +164,7 @@ class ScenarioImporter:
 							self.all_series[key] = TimeSeries([], [], '%', Better.LOWER)
 						self.all_series[key].add_one_data(timestamp, busy)
 						continue
-					search = re.search(',(instructions|cycles|cpu-clock),', line)
+					search = re.search(',(instructions|cycles|cpu-clock|r60|r61),', line)
 					if search:
 						perf_output = line.strip().split(',')
 						perf_timestamp = float(perf_output[0]) * 1e9
@@ -166,12 +177,23 @@ class ScenarioImporter:
 						#	self.all_series[key] = TimeSeries([], [], 'count', Better.HIGHER)
 						#self.all_series[key].add_one_data(int(perf_timestamp), perf_counter)
 						metric_key = ""
-						if metric_unit == 'insn per cycle':
+						if metric_unit == 'K/sec':
+							metric /= 1024
+						elif metric_unit == 'G/sec':
+							metric *= 1024
+						elif metric_unit == 'insn per cycle':
 							metric_key = 'a720.PNC.perf.ipc'
 							metric_unit = 'ipc'
 						elif metric_unit == "CPUs utilized":
 							metric_key = 'a720.PNC.perf.cpus'
 							metric_unit = 'count'
+
+						if perf_name == 'r60':
+							metric_key = 'a720.PNC.perf.bus_access_rd'
+							metric_unit = 'Mbeat/s'
+						elif perf_name == 'r61':
+							metric_key = 'a720.PNC.perf.bus_access_wr'
+							metric_unit = 'Mbeat/s'
 						if metric_key != "":
 							if metric_key not in self.all_series:
 								self.all_series[metric_key] = TimeSeries([], [], metric_unit, Better.HIGHER)
@@ -295,21 +317,28 @@ class ScenarioImporter:
 				data = new_series.tolist() if new_series is not None else None
 				self.all_series[new_name] = TimeSeries(timestamp, data, new_unit, Better.HIGHER)
 
+	def sum_perf_cpus(self, name):
+		if name in self.all_series and 'a720.PNC.perf.cpus':
+			ipc = self.all_series[name].get_data_series()
+			ipc_ts = self.all_series[name].get_timestamp_series()
+			cpus = self.all_series['a720.PNC.perf.cpus'].get_data_series()
+			cpus_ts = self.all_series['a720.PNC.perf.cpus'].get_timestamp_series()
+			ipc_unit = self.all_series[name].get_unit()
+			if np.array_equal(cpus_ts, ipc_ts):
+				new_ipc = ipc * cpus
+				self.all_series[name+'_total'] = TimeSeries(ipc_ts, new_ipc, ipc_unit, Better.HIGHER)
+				self.all_series.pop(name)
+				return True
+			return False
+
 	def get_all_series(self):
 		self.sum_series(r'(?<!ddr)\.monitor\.total_bw', 'ddr.monitor.sum_total_bw')
 		self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
 		#self.sum_series('a720.*memcpy', 'a720.sum.memcpy')
+		self.sum_perf_cpus('a720.PNC.perf.ipc')
+		self.sum_perf_cpus('a720.PNC.perf.bus_access_rd')
+		self.sum_perf_cpus('a720.PNC.perf.bus_access_wr')
+		self.all_series.pop('a720.PNC.perf.cpus')
 		if 'a720.PNC.cpu_utilization' in self.all_series:
 			self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw', 'a720.PNC.monitor.sum_total_bw')
-		if 'a720.PNC.perf.ipc' in self.all_series and 'a720.PNC.perf.cpus':
-			ipc = self.all_series['a720.PNC.perf.ipc'].get_data_series()
-			ipc_ts = self.all_series['a720.PNC.perf.ipc'].get_timestamp_series()
-			cpus = self.all_series['a720.PNC.perf.cpus'].get_data_series()
-			cpus_ts = self.all_series['a720.PNC.perf.cpus'].get_timestamp_series()
-			ipc_unit = self.all_series['a720.PNC.perf.ipc'].get_unit()
-			if np.array_equal(cpus_ts, ipc_ts):
-				new_ipc = ipc * cpus
-				self.all_series['a720.PNC.perf.ipc_total'] = TimeSeries(ipc_ts, new_ipc, ipc_unit, Better.HIGHER)
-				self.all_series.pop('a720.PNC.perf.cpus')
-				self.all_series.pop('a720.PNC.perf.ipc')
 		return self.all_series
