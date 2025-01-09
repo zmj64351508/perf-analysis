@@ -338,7 +338,8 @@ class ScenarioImporter:
 		self.sum_perf_cpus('a720.PNC.perf.ipc')
 		self.sum_perf_cpus('a720.PNC.perf.bus_access_rd')
 		self.sum_perf_cpus('a720.PNC.perf.bus_access_wr')
-		self.all_series.pop('a720.PNC.perf.cpus')
+		if "a720.PNC.perf.cpus" in self.all_series:
+			self.all_series.pop('a720.PNC.perf.cpus')
 		if 'a720.PNC.cpu_utilization' in self.all_series:
 			self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw', 'a720.PNC.monitor.sum_total_bw')
 		return self.all_series
