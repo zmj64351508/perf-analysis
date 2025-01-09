@@ -2,6 +2,7 @@ import re
 import numpy as np
 from time_series import TimeSeries
 from time_series import Better
+import config
 
 class ScenarioImporter:
 	def __init__(self):
@@ -188,12 +189,17 @@ class ScenarioImporter:
 							metric_key = 'a720.PNC.perf.cpus'
 							metric_unit = 'count'
 
-						if perf_name == 'r60':
-							metric_key = 'a720.PNC.perf.bus_access_rd'
-							metric_unit = 'Mbeat/s'
-						elif perf_name == 'r61':
-							metric_key = 'a720.PNC.perf.bus_access_wr'
-							metric_unit = 'Mbeat/s'
+						beat_size = config.config['bus.beat_size']
+						if perf_name == 'r60' or perf_name == 'r61':
+							if perf_name == 'r60':
+								metric_key = 'a720.PNC.perf.bus_access_rd'
+							else:
+								metric_key = 'a720.PNC.perf.bus_access_wr'
+							if beat_size > 0:
+								metric *= beat_size
+								metric_unit = 'MB/s'
+							else:
+								metric_unit = 'Mbeat/s'
 						if metric_key != "":
 							if metric_key not in self.all_series:
 								self.all_series[metric_key] = TimeSeries([], [], metric_unit, Better.HIGHER)
