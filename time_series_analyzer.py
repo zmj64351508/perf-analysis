@@ -38,7 +38,7 @@ if __name__ == "__main__":
 	parser.add_argument("-s", "--start", type=int, default=None, help="start timestamp")
 	parser.add_argument("-e", "--end", type=int, default=None, help="end timestamp")
 	parser.add_argument("-c", "--convert", type=str, nargs='?', default="", help="Convert to standard data format, argument is prefix")
-	parser.add_argument("-i", "--input_format", type=str, default="scenario", help="Input format (candidates: scenario, series)")
+	parser.add_argument("-i", "--input_format", type=str, default="unknown", help="Input format (candidates: scenario, series)")
 	parser.add_argument("--beat_size", type=int, default=0, help="Bus beat size")
 	parser.add_argument('input_files', nargs='+', help='List of files to process.')
 	args = parser.parse_args()
@@ -47,8 +47,10 @@ if __name__ == "__main__":
 
 	if args.input_format == "series":
 		importer = series_importer_exporter.SeriesImporter()
-	else:
+	elif args.input_format == "scenario":
 		importer = ScenarioImporter()
+	else:
+		importer = None
 	
 	for file in args.input_files:
 		for path in glob.glob(file, recursive=True):
@@ -57,6 +59,12 @@ if __name__ == "__main__":
 				continue
 			else:
 				print('Importing from ', path)
+				# Guess importer if not specified
+				if importer is None:
+					if path.endswith(".series"):
+						importer = series_importer_exporter.SeriesImporter()
+					else:
+						importer = ScenarioImporter()
 				importer.import_from_path(path)
 	print('=' * 80)
 	viewer = []
