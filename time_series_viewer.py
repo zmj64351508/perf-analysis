@@ -354,14 +354,20 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 
 		if len(self.all_series) == 1:
 			for key in self.all_series:
+				self.name = key
 				self.set_window_title(key)
+			self.fig.canvas.mpl_connect('close_event', self.on_close)
 		else:
+			self.name = "combined"
 			self.set_window_title("Combined Viewer")
 
 		self.span = SpanSelector(self.ax, self.on_select, 'horizontal', useblit=True,
 									props=dict(alpha=0.3, facecolor='blue'), interactive=True, button=1)
 		self.show_information_pane()
 		self.show_statistics(0, 0)
+
+	def on_close(self, event):
+		self.get_mgr().remove_seperated_viewer(self.name)
 
 	def get_lines(self):
 		return self.lines
@@ -411,9 +417,4 @@ Start: {start} {self.time_unit}
 		self.show_information(text)
 
 	def save(self, path, *args, **kargs):
-		if len(self.all_series) == 1:
-			for key in self.all_series:
-				name = key
-		else:
-			name = "combined"
-		self.fig.savefig(os.path.join(path, f'{name}.png'), *args, **kargs)
+		self.fig.savefig(os.path.join(path, f'{self.name}.png'), *args, **kargs)
