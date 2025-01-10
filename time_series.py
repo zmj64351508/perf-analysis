@@ -40,7 +40,7 @@ class TimeSeries(object):
 
 	def get_timestamp_series(self) -> np.array:
 		if self.timestamp is not None and len(self.timestamp) > 0:
-			return np.array(self.timestamp)
+			return np.array(self.timestamp, dtype=np.int64)
 		else:
 			return np.arange(len(self.data))
 
