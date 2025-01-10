@@ -151,6 +151,19 @@ class TimeSeriesSelector(tk.Frame):
 		chk = ttk.Checkbutton(right_frame, text="Show data points", variable=self.show_data_point)
 		chk.pack(side=tk.TOP, padx=5, anchor=tk.NW)
 
+		moving_average_frame = tk.Frame(right_frame)
+		moving_average_frame.pack(side=tk.TOP, padx=5, anchor=tk.NW)
+		self.show_moving_average = tk.BooleanVar()
+		chk = ttk.Checkbutton(moving_average_frame, text="Show moving average. Window=", variable=self.show_moving_average)
+		chk.pack(side=tk.LEFT)
+		self.show_moving_average_window = tk.Entry(moving_average_frame, relief="solid", width=10)
+		self.show_moving_average_window.insert(0, "100")
+		self.show_moving_average_window.pack(side=tk.LEFT)
+
+		self.hide_original_series = tk.BooleanVar()
+		chk = ttk.Checkbutton(right_frame, text="Hide original series", variable=self.hide_original_series)
+		chk.pack(side=tk.TOP, padx=5, anchor=tk.NW)
+
 		confirm_button = ttk.Button(right_frame, text="Confirm", command=self.confirm_selection)
 		confirm_button.pack(side=tk.BOTTOM, padx=(0, 5), anchor=tk.SW)
 
@@ -184,6 +197,13 @@ class TimeSeriesSelector(tk.Frame):
 			config["plot.marker"] = "."
 		else:
 			config["plot.marker"] = ""
+
+		if self.show_moving_average.get():
+			config["plot.moving_average_window"] = int(self.show_moving_average_window.get())
+		else:
+			config["plot.moving_average_window"] = 0
+
+		config["plot.hide_original_series"] = self.hide_original_series.get()
 
 		try:
 			for option in selected_series:

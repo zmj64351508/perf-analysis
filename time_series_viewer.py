@@ -341,9 +341,21 @@ class TimeSeriesViewer(TimeSeriesViewerBase):
 				self.time_unit = time_unit
 			elif self.time_unit != time_unit:
 				raise ValueError(f"All series must have the same timestamp unit. {self.time_unit} vs. {time_unit}")
-			self.lines += self.ax.plot(timestamps, data, label=f"{name} ({series.get_unit()})", marker=config["plot.marker"])
-			self.x.append(timestamps)
-			self.y.append(data)
+
+			if not config["plot.hide_original_series"]:
+				self.lines += self.ax.plot(timestamps, data, label=f"{name} ({series.get_unit()})", marker=config["plot.marker"])
+				self.x.append(timestamps)
+				self.y.append(data)
+
+			maw = config["plot.moving_average_window"]
+			if maw > 0:
+				maw = min(len(timestamps), maw)
+				kernel = np.ones(maw) / maw
+				ma_data = np.convolve(data, kernel, mode='same')
+				self.lines += self.ax.plot(timestamps, ma_data, label=f"{name} ma({maw}) ({series.get_unit()})", marker=config["plot.marker"])
+				self.x.append(timestamps)
+				self.y.append(ma_data)
+
 			if self.unit == "":
 				self.unit = series.get_unit()
 			elif self.unit != series.get_unit():
