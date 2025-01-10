@@ -44,7 +44,7 @@ class SeriesImporter:
 	def __init__(self):
 		self.all_series = {}
 
-	def import_from_path(self, path):
+	def import_from_path(self, path, offset=0):
 		with open(path, 'r') as f:
 			name = ""
 			unit = ""
@@ -65,6 +65,8 @@ class SeriesImporter:
 						timestamp = []
 					else:
 						timestamp = eval(timestamp)
+					if offset != 0:
+						timestamp = [t + offset for t in timestamp]
 				elif line.startswith("data:"):
 					data = eval(line[5:].strip())
 				elif line.startswith("series end"):

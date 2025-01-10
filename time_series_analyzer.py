@@ -53,19 +53,25 @@ if __name__ == "__main__":
 		importer = None
 	
 	for file in args.input_files:
+		splited = file.split('#')
+		file = splited[0]
+		if len(splited) > 1:
+			offset = int(splited[1])
+		else:
+			offset = 0
 		for path in glob.glob(file, recursive=True):
 			if os.path.isdir(path):
 				args.input_files.append(os.path.join(path, "*"))
 				continue
 			else:
-				print('Importing from ', path)
+				print(f'Importing from {path}, offset={offset}')
 				# Guess importer if not specified
 				if importer is None:
 					if path.endswith(".series"):
 						importer = series_importer_exporter.SeriesImporter()
 					else:
 						importer = ScenarioImporter()
-				importer.import_from_path(path)
+				importer.import_from_path(path, offset=offset)
 	print('=' * 80)
 	viewer = []
 

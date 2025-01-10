@@ -9,7 +9,7 @@ class ScenarioImporter:
 		self.all_series = {}
 		pass
 
-	def import_from_path(self, path: str):
+	def import_from_path(self, path: str, offset=0):
 		zebu_log = False
 		with open(path, "r") as f:
 			for l in f.readlines(10):
