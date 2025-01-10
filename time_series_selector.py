@@ -60,10 +60,18 @@ class TimeSeriesList(tk.Frame):
 	
 	def select_all(self):
 		for i, chk in enumerate(self.checks):
+			self.check_vars[i].set(True)
+
+	def deselect_all(self):
+		for i, chk in enumerate(self.checks):
+			self.check_vars[i].set(False)
+
+	def select_filtered(self):
+		for i, chk in enumerate(self.checks):
 			if chk.winfo_viewable():
 				self.check_vars[i].set(True)
 
-	def deselect_all(self):
+	def deselect_filtered(self):
 		for i, chk in enumerate(self.checks):
 			if chk.winfo_viewable():
 				self.check_vars[i].set(False)
@@ -125,6 +133,10 @@ class TimeSeriesSelector(tk.Frame):
 		select_all_button.pack(side=tk.LEFT, padx=(5, 5))
 		deselect_all_button = ttk.Button(select_button_frame, text="Deselect All", command=self.deselect_all)
 		deselect_all_button.pack(side=tk.LEFT, padx=(0, 5))
+		select_filtered_button = ttk.Button(select_button_frame, text="Select Filtered", command=self.select_filtered)
+		select_filtered_button.pack(side=tk.LEFT, padx=(5, 5))
+		deselect_filtered_button = ttk.Button(select_button_frame, text="Deselect Filtered", command=self.deselect_filtered)
+		deselect_filtered_button.pack(side=tk.LEFT, padx=(0, 5))
 
 		self.series_list = TimeSeriesList(left_frame, self.all_series)
 		self.series_list.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5, anchor=tk.NW)
@@ -189,6 +201,12 @@ class TimeSeriesSelector(tk.Frame):
 
 	def deselect_all(self):
 		self.series_list.deselect_all()
+
+	def select_filtered(self):
+		self.series_list.select_filtered()
+
+	def deselect_filtered(self):
+		self.series_list.deselect_filtered()
 
 	def confirm_selection(self):
 		selected_series = self.series_list.get_selection()
