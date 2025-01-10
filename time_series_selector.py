@@ -152,7 +152,7 @@ class TimeSeriesSelector(tk.Frame):
 		chk.pack(side=tk.LEFT)
 		self.time_viewer_type = ttk.Combobox(time_viewer_frame, values=["seperated viewer", "combined viewer"])
 		#self.time_viewer_type.bind("<<ComboboxSelected>>", self.time_viewer_type_select)
-		self.time_viewer_type.set("seperated viewer")
+		self.time_viewer_type.set("combined viewer")
 		self.time_viewer_type.pack(side=tk.LEFT)
 
 		self.use_perodic_analysis = tk.BooleanVar()
