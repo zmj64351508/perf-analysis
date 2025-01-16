@@ -1,4 +1,5 @@
 config = {
+	"selector.auto_group": False,
 	"plot.marker": "",
 	"plot.moving_average_window": 0,
 	"plot.hide_original_series": False,

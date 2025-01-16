@@ -84,6 +84,25 @@ class TimeSeriesList(tk.Frame):
 	def get_selection(self):
 		return [self.list[i] for i, var in enumerate(self.check_vars) if var.get()]
 
+class TimeSeriesListGroup(tk.Frame):
+	def __init__(self, parent, series_groups):
+		self.canvas = tk.Canvas(self, highlightthickness=0)
+		self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+		
+		self.scrollbar = tk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+		self.scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+		
+		roll_frame=tk.Frame(self.canvas)
+		roll_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+		self.canvas.create_window((0,0), window=roll_frame, anchor='nw')
+		self.canvas.configure(xscrollcommand=self.scrollbar.set)
+
+		self.series_group = series_groups
+		self.series_list = {} 
+		for series_group_name in self.series_group:
+			self.series_list[series_group_name] = TimeSeriesList(self, self.series_group[series_group_name])
+			self.series_list[series_group_name].pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5, anchor=tk.NW)
+
 
 class SearchBox(tk.Frame):
 	def __init__(self, parent, search_command, text="Search"):
@@ -96,6 +115,7 @@ class SearchBox(tk.Frame):
 		clear_button = ttk.Button(self, text="Clear", command=self.clear)
 		clear_button.pack(side=tk.LEFT, padx=(2,0), anchor=tk.NE)
 		self.bind_all("<Return>", lambda e: self._search())
+
 
 	def _search(self):
 		self.search_command(self.input.get())
@@ -113,7 +133,10 @@ class TimeSeriesSelector(tk.Frame):
 		self.all_series = all_series
 		self.root = parent
 		self.root.title("Select Time Series")
-		self.root.geometry("800x600")
+		if config["selector.auto_group"]:
+			self.root.geometry("1280x600")
+		else:
+			self.root.geometry("800x600")
 		self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 		self.mgr = mgr
 
@@ -138,8 +161,22 @@ class TimeSeriesSelector(tk.Frame):
 		deselect_filtered_button = ttk.Button(select_button_frame, text="Deselect Filtered", command=self.deselect_filtered)
 		deselect_filtered_button.pack(side=tk.LEFT, padx=(0, 5))
 
-		self.series_list = TimeSeriesList(left_frame, self.all_series)
-		self.series_list.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5, anchor=tk.NW)
+		self.series_group = {}
+		for key in sorted(self.all_series):
+			if config["selector.auto_group"]:
+				series_group_name = key.split('.')[0]
+			else:
+				series_group_name = "all series"
+			if series_group_name not in self.series_group:
+				self.series_group[series_group_name] = {}
+			self.series_group[series_group_name][key] = self.all_series[key]
+
+		series_group_frame = tk.Frame(left_frame)
+		series_group_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, anchor=tk.NW)
+		self.series_list = {} 
+		for series_group_name in self.series_group:
+			self.series_list[series_group_name] = TimeSeriesList(series_group_frame, self.series_group[series_group_name])
+			self.series_list[series_group_name].pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5, anchor=tk.NW)
 
 		right_frame = tk.Frame(self)
 		right_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5, anchor=tk.NW)
@@ -187,29 +224,37 @@ class TimeSeriesSelector(tk.Frame):
 
 	def filter(self, text):
 		if len(text) == 0:
-			for key in self.all_series:
-				self.series_list.set_series_visibility(key, True)
+			for group_name in self.series_group:
+				for key in self.series_group[group_name]:
+					self.series_list[group_name].set_series_visibility(key, True)
 		else:
-			for key in self.all_series:
-				if re.search(text, key):
-					self.series_list.set_series_visibility(key, True)
-				else:
-					self.series_list.set_series_visibility(key, False)	
+			for group_name in self.series_group:
+				for key in self.series_group[group_name]:
+					if re.search(text, key):
+						self.series_list[group_name].set_series_visibility(key, True)
+					else:
+						self.series_list[group_name].set_series_visibility(key, False)	
 
 	def select_all(self):
-		self.series_list.select_all()
+		for k, v in self.series_list.items():
+			v.select_all()
 
 	def deselect_all(self):
-		self.series_list.deselect_all()
+		for k, v in self.series_list.items():
+			v.deselect_all()
 
 	def select_filtered(self):
-		self.series_list.select_filtered()
+		for k, v in self.series_list.items():
+			v.select_filtered()
 
 	def deselect_filtered(self):
-		self.series_list.deselect_filtered()
+		for k, v in self.series_list.items():
+			v.deselect_filtered()
 
 	def confirm_selection(self):
-		selected_series = self.series_list.get_selection()
+		selected_series = []
+		for k, v in self.series_list.items():
+			selected_series += v.get_selection()
 		print("Selected series:", selected_series)
 		if self.show_data_point.get():
 			config["plot.marker"] = "."
@@ -227,16 +272,22 @@ class TimeSeriesSelector(tk.Frame):
 			for option in selected_series:
 				if self.use_time_viewer.get():
 					if self.time_viewer_type.get() == "combined viewer":
-						self.mgr.add_combined_viewer(option, self.all_series[option])
+						self.mgr.add_combined_viewer(option, self.get_series(option))
 					else:
-						self.mgr.add_seperated_viewer(option, self.all_series[option])
+						self.mgr.add_seperated_viewer(option, self.get_series(option))
 				if self.use_perodic_analysis.get():
-					self.mgr.add_perodic_analysis(option, self.all_series[option])
+					self.mgr.add_perodic_analysis(option, self.get_series(option))
 			self.mgr.show()
 		except Exception as e:
 			messagebox.showerror("Error", message=str(e))
 			self.mgr.clear()
 			raise(e)
+
+	def get_series(self, name):
+		for k, v in self.series_group.items():
+			if name in v:
+				return v[name]
+		return None
 
 	def on_close(self):
 		self.mgr.clear()

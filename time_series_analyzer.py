@@ -39,11 +39,13 @@ if __name__ == "__main__":
 	parser.add_argument("-e", "--end", type=int, default=None, help="end timestamp")
 	parser.add_argument("-c", "--convert", type=str, nargs='?', default="", help="Convert to standard data format, argument is prefix")
 	parser.add_argument("-i", "--input_format", type=str, default="unknown", help="Input format (candidates: scenario, series)")
+	parser.add_argument("--group", action="store_true", help="Automatically group series")
 	parser.add_argument("--beat_size", type=int, default=0, help="Bus beat size")
 	parser.add_argument('input_files', nargs='+', help='List of files to process.')
 	args = parser.parse_args()
 
 	config["bus.beat_size"] = args.beat_size
+	config["selector.auto_group"] = args.group
 
 	if args.input_format == "series":
 		importer = series_importer_exporter.SeriesImporter()
