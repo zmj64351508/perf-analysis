@@ -182,6 +182,10 @@ class ScenarioImporter:
 							metric /= 1024
 						elif metric_unit == 'G/sec':
 							metric *= 1024
+						elif metric_unit == '/sec':
+							metric /= 1024 * 1024
+						elif metric_unit == 'M/sec':
+							pass
 						elif metric_unit == 'insn per cycle':
 							metric_key = 'a720.PNC.perf.ipc'
 							metric_unit = 'ipc'
@@ -273,6 +277,15 @@ class ScenarioImporter:
 						search = re.search(r'^(.+): (\d+) ([KMG]+B/s)', line)
 						if search:
 							name = search.group(1).lower()
+							if name.endswith(' read'):
+								rw = 'read'
+								name = name[:-5]
+							elif name.endswith(' write'):
+								rw = 'write'
+								name = name[:-6]
+							else:
+								rw = 'total'
+							
 							# workaround for duplicate cam
 							if name == 'cam':
 								cam_idx += 1
@@ -282,7 +295,7 @@ class ScenarioImporter:
 								name = 'a720.PNC'
 							elif name.startswith('cpu '):
 								name = name.replace('cpu ', 'a720.')
-							key = f'{name}.monitor.total_bw'
+							key = f'{name}.monitor.{rw}_bw'
 							bw = int(search.group(2))
 							unit = search.group(3)
 							if key not in self.all_series:
@@ -304,6 +317,13 @@ class ScenarioImporter:
 		new_b[:len(b)] = b
 		return new_a + new_b
 
+	def add_series(self, series_0, series_1):
+		data = self.pad_and_add(series_0.get_data_series(), series_1.get_data_series())
+		timestamp = series_0.get_timestamp_series()
+		unit = series_0.get_unit()
+		better = series_0.get_better()
+		return TimeSeries(timestamp, data, unit, better)
+
 	def sum_series(self, pattern, new_name):
 		if new_name not in self.all_series:
 			new_series = []
@@ -316,12 +336,13 @@ class ScenarioImporter:
 						new_series = self.all_series[key].get_data_series()
 						new_timestamp = self.all_series[key].get_timestamp_series()
 						new_unit = self.all_series[key].get_unit()
+						new_better = self.all_series[key].get_better()
 					else:
 						new_series = self.pad_and_add(new_series, self.all_series[key].get_data_series())
 			if len(new_series) > 0:
 				timestamp = new_timestamp.tolist() if new_timestamp is not None else None
 				data = new_series.tolist() if new_series is not None else None
-				self.all_series[new_name] = TimeSeries(timestamp, data, new_unit, Better.HIGHER)
+				self.all_series[new_name] = TimeSeries(timestamp, data, new_unit, new_better)
 
 	def sum_perf_cpus(self, name):
 		if name in self.all_series and 'a720.PNC.perf.cpus':
@@ -335,11 +356,37 @@ class ScenarioImporter:
 				self.all_series[name+'_total'] = TimeSeries(ipc_ts, new_ipc, ipc_unit, Better.HIGHER)
 				self.all_series.pop(name)
 				return True
+			else:
+				print(f'{name}: perf cpus series has different timestamps')
 			return False
 
+	def calc_total_bw(self):
+		total_bw = {}
+		for key in self.all_series:
+			total_key = None
+			if key.endswith('read_bw'):
+				total_key = key.replace('read_bw', 'total_bw')
+			elif key.endswith('write_bw'):
+				total_key = key.replace('write_bw', 'total_bw')
+			if total_key is None:
+				continue
+			if total_key in total_bw:
+				total_bw[total_key] = self.add_series(total_bw[total_key], self.all_series[key])
+			else:
+				total_bw[total_key] = self.all_series[key]
+
+		for key in total_bw:
+			if key not in self.all_series:
+				self.all_series[key] = total_bw[key]
+
 	def get_all_series(self):
+		self.calc_total_bw()
 		self.sum_series(r'(?<!ddr)\.monitor\.total_bw', 'ddr.monitor.sum_total_bw')
+		self.sum_series(r'(?<!ddr)\.monitor\.read_bw', 'ddr.monitor.sum_read_bw')
+		self.sum_series(r'(?<!ddr)\.monitor\.write_bw', 'ddr.monitor.sum_write_bw')
 		self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
+		self.sum_series('a720.*\.monitor\.read_bw', 'a720.monitor.sum_read_bw')
+		self.sum_series('a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
 		#self.sum_series('a720.*memcpy', 'a720.sum.memcpy')
 		self.sum_perf_cpus('a720.PNC.perf.ipc')
 		self.sum_perf_cpus('a720.PNC.perf.bus_access_rd')
