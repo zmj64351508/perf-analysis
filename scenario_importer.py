@@ -7,6 +7,7 @@ import config
 class ScenarioImporter:
 	def __init__(self):
 		self.all_series = {}
+		self.post_processed = False
 		pass
 
 	def import_from_path(self, path: str, offset=0):
@@ -380,19 +381,21 @@ class ScenarioImporter:
 				self.all_series[key] = total_bw[key]
 
 	def get_all_series(self):
-		self.calc_total_bw()
-		self.sum_series(r'(?<!ddr)\.monitor\.total_bw', 'ddr.monitor.sum_total_bw')
-		self.sum_series(r'(?<!ddr)\.monitor\.read_bw', 'ddr.monitor.sum_read_bw')
-		self.sum_series(r'(?<!ddr)\.monitor\.write_bw', 'ddr.monitor.sum_write_bw')
-		self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
-		self.sum_series('a720.*\.monitor\.read_bw', 'a720.monitor.sum_read_bw')
-		self.sum_series('a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
-		#self.sum_series('a720.*memcpy', 'a720.sum.memcpy')
-		self.sum_perf_cpus('a720.PNC.perf.ipc')
-		self.sum_perf_cpus('a720.PNC.perf.bus_access_rd')
-		self.sum_perf_cpus('a720.PNC.perf.bus_access_wr')
-		if "a720.PNC.perf.cpus" in self.all_series:
-			self.all_series.pop('a720.PNC.perf.cpus')
-		if 'a720.PNC.cpu_utilization' in self.all_series:
-			self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw', 'a720.PNC.monitor.sum_total_bw')
+		if not self.post_processed:
+			self.calc_total_bw()
+			self.sum_series(r'(?<!ddr)\.monitor\.total_bw', 'ddr.monitor.sum_total_bw')
+			self.sum_series(r'(?<!ddr)\.monitor\.read_bw', 'ddr.monitor.sum_read_bw')
+			self.sum_series(r'(?<!ddr)\.monitor\.write_bw', 'ddr.monitor.sum_write_bw')
+			self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
+			self.sum_series('a720.*\.monitor\.read_bw', 'a720.monitor.sum_read_bw')
+			self.sum_series('a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
+			#self.sum_series('a720.*memcpy', 'a720.sum.memcpy')
+			self.sum_perf_cpus('a720.PNC.perf.ipc')
+			self.sum_perf_cpus('a720.PNC.perf.bus_access_rd')
+			self.sum_perf_cpus('a720.PNC.perf.bus_access_wr')
+			if "a720.PNC.perf.cpus" in self.all_series:
+				self.all_series.pop('a720.PNC.perf.cpus')
+			if 'a720.PNC.cpu_utilization' in self.all_series:
+				self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw', 'a720.PNC.monitor.sum_total_bw')
+			self.post_processed = True
 		return self.all_series
