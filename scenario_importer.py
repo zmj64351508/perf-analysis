@@ -284,6 +284,9 @@ class ScenarioImporter:
 							elif name.endswith(' write'):
 								rw = 'write'
 								name = name[:-6]
+							elif name.endswith(' total'):
+								rw = 'total'
+								name = name[:-6]
 							else:
 								rw = 'total'
 							
@@ -320,6 +323,13 @@ class ScenarioImporter:
 
 	def add_series(self, series_0, series_1):
 		data = self.pad_and_add(series_0.get_data_series(), series_1.get_data_series())
+		timestamp = series_0.get_timestamp_series()
+		unit = series_0.get_unit()
+		better = series_0.get_better()
+		return TimeSeries(timestamp, data, unit, better)
+
+	def minus_series(self, series_0, series_1):
+		data = self.pad_and_add(series_0.get_data_series(), series_1.get_data_series() * (-1))
 		timestamp = series_0.get_timestamp_series()
 		unit = series_0.get_unit()
 		better = series_0.get_better()
@@ -366,9 +376,9 @@ class ScenarioImporter:
 		for key in self.all_series:
 			total_key = None
 			if key.endswith('read_bw'):
-				total_key = key.replace('read_bw', 'total_bw')
+				total_key = key.replace('read_bw', 'total_bw(r+w)')
 			elif key.endswith('write_bw'):
-				total_key = key.replace('write_bw', 'total_bw')
+				total_key = key.replace('write_bw', 'total_bw(r+w)')
 			if total_key is None:
 				continue
 			if total_key in total_bw:
@@ -383,12 +393,14 @@ class ScenarioImporter:
 	def get_all_series(self):
 		if not self.post_processed:
 			self.calc_total_bw()
-			self.sum_series(r'(?<!ddr)\.monitor\.total_bw', 'ddr.monitor.sum_total_bw')
+			self.sum_series(r'(?<!ddr)\.monitor\.total_bw$', 'ddr.monitor.sum_total_bw')
+			self.sum_series(r'(?<!ddr)\.monitor\.total_bw\(r\+w\)', 'ddr.monitor.sum_total_bw(r+w)')
 			self.sum_series(r'(?<!ddr)\.monitor\.read_bw', 'ddr.monitor.sum_read_bw')
 			self.sum_series(r'(?<!ddr)\.monitor\.write_bw', 'ddr.monitor.sum_write_bw')
-			self.sum_series('a720.*\.monitor\.total_bw', 'a720.monitor.sum_total_bw')
-			self.sum_series('a720.*\.monitor\.read_bw', 'a720.monitor.sum_read_bw')
-			self.sum_series('a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
+			self.sum_series(r'a720.*\.monitor\.total_bw$', 'a720.monitor.sum_total_bw')
+			self.sum_series(r'a720.*\.monitor\.total_bw\(r\+w\)', 'a720.monitor.sum_total_bw(r+w)')
+			self.sum_series(r'a720.*\.monitor\.read_bw', 'a720.monitor.sum_read_bw')
+			self.sum_series(r'a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
 			#self.sum_series('a720.*memcpy', 'a720.sum.memcpy')
 			self.sum_perf_cpus('a720.PNC.perf.ipc')
 			self.sum_perf_cpus('a720.PNC.perf.bus_access_rd')
@@ -396,6 +408,7 @@ class ScenarioImporter:
 			if "a720.PNC.perf.cpus" in self.all_series:
 				self.all_series.pop('a720.PNC.perf.cpus')
 			if 'a720.PNC.cpu_utilization' in self.all_series:
-				self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw', 'a720.PNC.monitor.sum_total_bw')
+				self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw$', 'a720.PNC.monitor.sum_total_bw')
+				self.sum_series(r'a720\.(b0|b1)\.monitor\.total_bw\(r\+w\)', 'a720.PNC.monitor.sum_total_bw(r+w)')
 			self.post_processed = True
 		return self.all_series
