@@ -275,7 +275,13 @@ class ScenarioImporter:
 						cam_idx = 0
 						continue
 					if monitor_timestamp > 0:
-						search = re.search(r'^(.+): (\d+) ([KMG]+B/s)', line)
+						# stripe leading color codes
+						search = re.search(r'(?:\[36m.*\[0m)(.*)', line)
+						if search:
+							striped_line = search.group(1)
+						else:
+							striped_line = line
+						search = re.search(r'^(.+): (\d+) ([KMG]+B/s)', striped_line)
 						if search:
 							name = search.group(1).lower()
 							if name.endswith(' read'):
