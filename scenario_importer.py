@@ -381,9 +381,9 @@ class ScenarioImporter:
 		total_bw = {}
 		for key in self.all_series:
 			total_key = None
-			if key.endswith('read_bw'):
+			if key.endswith('.monitor.read_bw'):
 				total_key = key.replace('read_bw', 'total_bw(r+w)')
-			elif key.endswith('write_bw'):
+			elif key.endswith('.monitor.write_bw'):
 				total_key = key.replace('write_bw', 'total_bw(r+w)')
 			if total_key is None:
 				continue
