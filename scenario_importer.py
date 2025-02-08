@@ -174,10 +174,11 @@ class ScenarioImporter:
 						perf_name = perf_output[3]
 						metric = float(perf_output[6])
 						metric_unit = perf_output[7]
-						#key = f'a720.PNC.perf.{perf_name}'
-						#if key not in self.all_series:
-						#	self.all_series[key] = TimeSeries([], [], 'count', Better.HIGHER)
-						#self.all_series[key].add_one_data(int(perf_timestamp), perf_counter)
+						if config.config['scenario_importer.perf.with_raw_counter']:
+							key = f'a720.PNC.perf.{perf_name}'
+							if key not in self.all_series:
+								self.all_series[key] = TimeSeries([], [], 'count', Better.HIGHER)
+							self.all_series[key].add_one_data(int(perf_timestamp), perf_counter)
 						metric_key = ""
 						if metric_unit == 'K/sec':
 							metric /= 1024
@@ -314,17 +315,18 @@ class ScenarioImporter:
 							self.all_series[key].add_one_data(monitor_timestamp, bw)
 							continue
 						# for ddr limit req
-						#search = re.search(r'(Read|Write): ((\d| )+)', striped_line)
-						#if search:
-						#	rw = search.group(1).lower()
-						#	watermark = search.group(2).split()
-						#	for i, v in enumerate(watermark):
-						#		key = f'ddr.{i}.{rw}.monitor.limit_req'
-						#		wm = int(v)
-						#		if key not in self.all_series:
-						#			self.all_series[key] = TimeSeries([], [], 'count', Better.HIGHER)
-						#		self.all_series[key].add_one_data(monitor_timestamp, wm)
-						#	continue
+						if config.config['scenario_importer.monitor.with_limit_req']:
+							search = re.search(r'(Read|Write): ((\d| )+)', striped_line)
+							if search:
+								rw = search.group(1).lower()
+								watermark = search.group(2).split()
+								for i, v in enumerate(watermark):
+									key = f'ddr.{i}.{rw}.monitor.limit_req'
+									wm = int(v)
+									if key not in self.all_series:
+										self.all_series[key] = TimeSeries([], [], 'count', Better.HIGHER)
+									self.all_series[key].add_one_data(monitor_timestamp, wm)
+								continue
 				except Exception as e:
 					print("Warning:", e)
 					print("  path:", path)
