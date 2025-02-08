@@ -262,7 +262,8 @@ class ScenarioImporter:
 					# gpua
 					search = re.search(r'handle_output_ri.*diff:(\w+)', line)
 					if search:
-						fps = 1e9 / int("0x" + search.group(1), 16)
+						#fps = 1e9 / int("0x" + search.group(1), 16)
+						fps = 1e9 / int(search.group(1))
 						key = "gpua.fps"
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], "fps", Better.HIGHER)
@@ -312,6 +313,18 @@ class ScenarioImporter:
 								self.all_series[key] = TimeSeries([], [], unit, Better.HIGHER)
 							self.all_series[key].add_one_data(monitor_timestamp, bw)
 							continue
+						# for ddr limit req
+						#search = re.search(r'(Read|Write): ((\d| )+)', striped_line)
+						#if search:
+						#	rw = search.group(1).lower()
+						#	watermark = search.group(2).split()
+						#	for i, v in enumerate(watermark):
+						#		key = f'ddr.{i}.{rw}.monitor.limit_req'
+						#		wm = int(v)
+						#		if key not in self.all_series:
+						#			self.all_series[key] = TimeSeries([], [], 'count', Better.HIGHER)
+						#		self.all_series[key].add_one_data(monitor_timestamp, wm)
+						#	continue
 				except Exception as e:
 					print("Warning:", e)
 					print("  path:", path)
