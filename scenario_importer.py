@@ -65,6 +65,10 @@ class ScenarioImporter:
 							line = line[:-4]
 						line = line.rstrip()
 
+						if config.config["scenario_importer.print_log"]:
+							print(line)
+							continue
+
 						search = re.search(r'^(\[(\d+)\])?(.*)', line)
 						if search:
 							if search.group(2) != None:
@@ -77,6 +81,7 @@ class ScenarioImporter:
 					else:
 						line = l.rstrip()
 						timestamp = None
+
 					# vpu
 					search = re.search(r'Start testing frame (\d+)', line)
 					if search:
@@ -154,19 +159,22 @@ class ScenarioImporter:
 							self.all_series[key].add_one_data(timestamp, bw)
 							continue
 					# PNC
-					search = re.search(r'all\s+(\d+.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)', line)
+					search = re.search(r'(all|\d+)\s+(\d+.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)', line)
 					if search:
-						mpstat_cnt += 1
+						cpu = search.group(1)
+						if cpu == 'all':
+							mpstat_cnt += 1
 						# skip the first 2 seconds
 						if mpstat_cnt <= 2:
 							continue
-						busy = 100 - float(search.group(9))
-						key = 'a720.PNC.cpu_utilization'
+						busy = 100 - float(search.group(10))
+						key = f'a720.linux.{cpu}.cpu_utilization'
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], '%', Better.LOWER)
 						self.all_series[key].add_one_data(timestamp, busy)
 						continue
-					search = re.search(',(instructions|cycles|cpu-clock|r60|r61),', line)
+
+					search = re.search(r',(instructions|cycles|cpu-clock|r60|r61),\d+', line)
 					if search:
 						perf_output = line.strip().split(',')
 						perf_timestamp = float(perf_output[0]) * 1e9
@@ -344,37 +352,66 @@ class ScenarioImporter:
 
 	def add_series(self, series_0, series_1):
 		data = self.pad_and_add(series_0.get_data_series(), series_1.get_data_series())
-		timestamp = series_0.get_timestamp_series()
+		if series_0.is_timestamp_valid():
+			timestamp = series_0.get_timestamp_series()
+		else:
+			timestamp = None
 		unit = series_0.get_unit()
 		better = series_0.get_better()
 		return TimeSeries(timestamp, data, unit, better)
 
 	def minus_series(self, series_0, series_1):
 		data = self.pad_and_add(series_0.get_data_series(), series_1.get_data_series() * (-1))
-		timestamp = series_0.get_timestamp_series()
+		if series_0.is_timestamp_valid():
+			timestamp = series_0.get_timestamp_series()
+		else:
+			timestamp = None
 		unit = series_0.get_unit()
 		better = series_0.get_better()
 		return TimeSeries(timestamp, data, unit, better)
 
-	def sum_series(self, pattern, new_name):
+	def do_sum_series(self, pattern, new_name):
+		count = 0
 		if new_name not in self.all_series:
 			new_series = []
 			new_timestamp = []
 			new_unit = ""
 			for key in self.all_series:
 				if re.search(pattern, key):
-					print(f'{new_name} add by {key}')
+					print(f"{new_name} add by {key}")
 					if len(new_series) == 0:
 						new_series = self.all_series[key].get_data_series()
-						new_timestamp = self.all_series[key].get_timestamp_series()
+						if self.all_series[key].is_timestamp_valid():
+							new_timestamp = self.all_series[key].get_timestamp_series()
+						else:
+							new_timestamp = None
 						new_unit = self.all_series[key].get_unit()
 						new_better = self.all_series[key].get_better()
+						count = 1
 					else:
 						new_series = self.pad_and_add(new_series, self.all_series[key].get_data_series())
+						count += 1
 			if len(new_series) > 0:
 				timestamp = new_timestamp.tolist() if new_timestamp is not None else None
 				data = new_series.tolist() if new_series is not None else None
 				self.all_series[new_name] = TimeSeries(timestamp, data, new_unit, new_better)
+			return count
+
+	def sum_series(self, pattern, new_name):
+		self.do_sum_series(pattern, new_name)
+	
+	def avg_series(self, pattern, new_name):
+		count = self.do_sum_series(pattern, new_name)
+		if count <= 1:
+			return
+		unit = self.all_series[new_name].get_unit()
+		data = self.all_series[new_name].get_data_series() / count
+		better = self.all_series[new_name].get_better()
+		if self.all_series[new_name].is_timestamp_valid():
+			timestamp = self.all_series[new_name].get_timestamp_series()
+		else:
+			timestamp = None
+		self.all_series[new_name] = TimeSeries(timestamp, data, unit, better)
 
 	def sum_perf_cpus(self, name):
 		if name in self.all_series and 'a720.PNC.perf.cpus':
@@ -384,6 +421,8 @@ class ScenarioImporter:
 			cpus_ts = self.all_series['a720.PNC.perf.cpus'].get_timestamp_series()
 			ipc_unit = self.all_series[name].get_unit()
 			if np.array_equal(cpus_ts, ipc_ts):
+				if not self.all_series[name].is_timestamp_valid():
+					ipc_ts = None
 				new_ipc = ipc * cpus
 				self.all_series[name+'_total'] = TimeSeries(ipc_ts, new_ipc, ipc_unit, Better.HIGHER)
 				self.all_series.pop(name)
@@ -422,6 +461,14 @@ class ScenarioImporter:
 			self.sum_series(r'a720.*\.monitor\.total_bw\(r\+w\)', 'a720.monitor.sum_total_bw(r+w)')
 			self.sum_series(r'a720.*\.monitor\.read_bw', 'a720.monitor.sum_read_bw')
 			self.sum_series(r'a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
+			self.sum_series(r'a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
+			for name in config.config["scenario_importer.linux.cpus"]:
+				cpus = config.config["scenario_importer.linux.cpus"][name]
+				self.avg_series(f'a720\.linux\.({cpus})\.cpu_utilization', f'a720.{name}.cpu_utilization')
+			if not config.config["scenario_importer.linux.keep_raw_cpu_utilization"]:
+				for key in list(self.all_series.keys()):
+					if key.startswith('a720.linux.'):
+						self.all_series.pop(key)
 			#self.sum_series('a720.*memcpy', 'a720.sum.memcpy')
 			self.sum_perf_cpus('a720.PNC.perf.ipc')
 			self.sum_perf_cpus('a720.PNC.perf.bus_access_rd')

@@ -38,8 +38,11 @@ class TimeSeries(object):
 	def count(self) -> int:
 		return len(self.data)
 
+	def is_timestamp_valid(self) -> bool:
+		return self.timestamp is not None and len(self.timestamp) > 0
+
 	def get_timestamp_series(self) -> np.array:
-		if self.timestamp is not None and len(self.timestamp) > 0:
+		if self.is_timestamp_valid():
 			return np.array(self.timestamp, dtype=np.int64)
 		else:
 			return np.arange(len(self.data))
@@ -51,7 +54,7 @@ class TimeSeries(object):
 		return self.unit
 
 	def get_timestamp_unit(self) -> str:
-		if self.timestamp is not None and len(self.timestamp) > 0:
+		if self.is_timestamp_valid():
 			return "ns"
 		else:
 			return "sample"

@@ -25,7 +25,7 @@ def save(path, all_series, prefix=""):
 				f.write("\n")
 				f.write("timestamp: ")
 				ts = series.get_timestamp_series()
-				if ts is not None:
+				if series.is_timestamp_valid():
 					f.write(np.array2string(ts, separator=","))
 				else:
 					f.write("None")
