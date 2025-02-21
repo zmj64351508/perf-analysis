@@ -109,22 +109,26 @@ class ScenarioImporter:
 						self.all_series[key].add_one_data(timestamp, vpu_cycle)
 						continue
 					# bpu
+					search = re.search(r'Test: .*bpu.*started', line)
+					if search:
+						bpu_num = 0
 					search = re.search(r'BPU model\[(.*)\] sum: read_bw\[(\d+)\] MB/s; write_bw\[(\d+)\] MB/s', line)
 					if search:
 						model = search.group(1)
 						read_bw = int(search.group(2))
 						write_bw = int(search.group(3))
 						bw = read_bw + write_bw
-						key = f'bpu.{model}.bw'
+						key = f'bpu.{bpu_num}.{model}.bw'
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, bw)
+						bpu_num += 1
 						continue
 					search = re.search(r'BPU model\[(.*)\].*fps\[(\d+)\]', line)
 					if search:
 						bpu_model = search.group(1)
 						bpu_model_fps = int(search.group(2))
-						key = f'bpu.{bpu_model}.fps'
+						key = f'bpu.{bpu_num}.{bpu_model}.fps'
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], 'fps', Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, bpu_model_fps)
@@ -132,17 +136,18 @@ class ScenarioImporter:
 					if bpu_model != "":
 						search = re.search(r'read_bw\[(\d+)\].*write_bw\[(\d+)\]', line)
 						if search:
-							key = f'bpu.{bpu_model}.read_bw'
+							key = f'bpu.{bpu_num}.{bpu_model}.read_bw'
 							bw = int(search.group(1))
 							if key not in self.all_series:
 								self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
 							self.all_series[key].add_one_data(timestamp, bw)
 
-							key = f'bpu.{bpu_model}.write_bw'
+							key = f'bpu.{bpu_num}.{bpu_model}.write_bw'
 							bw = int(search.group(2))
 							if key not in self.all_series:
 								self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
 							self.all_series[key].add_one_data(timestamp, bw)
+							bpu_num += 1
 							continue
 					# vdsp
 					search = re.search(r'VDSP Chip_Vi test function, Processor ID: \[(\d+)\]', line)
@@ -174,7 +179,7 @@ class ScenarioImporter:
 						self.all_series[key].add_one_data(timestamp, busy)
 						continue
 
-					search = re.search(r',(instructions|cycles|cpu-clock|r60|r61),\d+', line)
+					search = re.search(r',(instructions|cycles|cpu-clock|r60|r61|cache-misses),\d+', line)
 					if search:
 						perf_output = line.strip().split(',')
 						perf_timestamp = float(perf_output[0]) * 1e9
@@ -214,6 +219,9 @@ class ScenarioImporter:
 								metric_unit = 'MB/s'
 							else:
 								metric_unit = 'Mbeat/s'
+						elif perf_name == 'cache-misses':
+							metric_key = 'a720.PNC.perf.cache_miss'
+							metric_unit = '%'
 						if metric_key != "":
 							if metric_key not in self.all_series:
 								self.all_series[metric_key] = TimeSeries([], [], metric_unit, Better.HIGHER)
@@ -428,7 +436,7 @@ class ScenarioImporter:
 				self.all_series.pop(name)
 				return True
 			else:
-				print(f'{name}: perf cpus series has different timestamps')
+				print(f'{name}: perf cpus series has different timestamps, {len(cpus_ts)}, {len(ipc_ts)}')
 			return False
 
 	def calc_total_bw(self):
