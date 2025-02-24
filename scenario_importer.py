@@ -343,6 +343,23 @@ class ScenarioImporter:
 										self.all_series[key] = TimeSeries([], [], 'count', Better.HIGHER)
 									self.all_series[key].add_one_data(monitor_timestamp, wm)
 								continue
+						if config.config['scenario_importer.monitor.with_channel_bw']:
+							search = re.search(r'(R Channel|W Channel): ((\d| )+)', striped_line)
+							if search:
+								rw = search.group(1).lower()
+								if rw == 'r channel':
+									rw = 'read'
+								elif rw == 'w channel':
+									rw = 'write'
+								bandwidth = search.group(2).split()
+								for i, v in enumerate(bandwidth):
+									key = f'ddr.{i}.monitor.{rw}_bw'
+									bw = int(v)
+									if key not in self.all_series:
+										self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
+									self.all_series[key].add_one_data(monitor_timestamp, bw)
+								continue
+							
 				except Exception as e:
 					print("Warning:", e)
 					print("  path:", path)
@@ -461,15 +478,17 @@ class ScenarioImporter:
 	def get_all_series(self):
 		if not self.post_processed:
 			self.calc_total_bw()
-			self.sum_series(r'(?<!ddr)\.monitor\.total_bw$', 'ddr.monitor.sum_total_bw')
-			self.sum_series(r'(?<!ddr)\.monitor\.total_bw\(r\+w\)', 'ddr.monitor.sum_total_bw(r+w)')
-			self.sum_series(r'(?<!ddr)\.monitor\.read_bw', 'ddr.monitor.sum_read_bw')
-			self.sum_series(r'(?<!ddr)\.monitor\.write_bw', 'ddr.monitor.sum_write_bw')
+			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.total_bw$', 'ddr.monitor.sum_total_bw')
+			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.total_bw\(r\+w\)$', 'ddr.monitor.sum_total_bw(r+w)')
+			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.read_bw$', 'ddr.monitor.sum_read_bw')
+			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.write_bw$', 'ddr.monitor.sum_write_bw')
 			self.sum_series(r'a720.*\.monitor\.total_bw$', 'a720.monitor.sum_total_bw')
 			self.sum_series(r'a720.*\.monitor\.total_bw\(r\+w\)', 'a720.monitor.sum_total_bw(r+w)')
 			self.sum_series(r'a720.*\.monitor\.read_bw', 'a720.monitor.sum_read_bw')
 			self.sum_series(r'a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
 			self.sum_series(r'a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
+			self.sum_series(r'ddr\.\d*[1,3,5,7,9]\.monitor\.total_bw', 'ddr.adas.monitor.sum_total_bw')
+			self.sum_series(r'ddr\.\d*[2,4,6,8,0]\.monitor\.total_bw', 'ddr.ivi.monitor.sum_total_bw')
 			for name in config.config["scenario_importer.linux.cpus"]:
 				cpus = config.config["scenario_importer.linux.cpus"][name]
 				self.avg_series(f'a720\.linux\.({cpus})\.cpu_utilization', f'a720.{name}.cpu_utilization')
