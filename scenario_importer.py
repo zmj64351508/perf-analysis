@@ -286,6 +286,14 @@ class ScenarioImporter:
 							self.all_series[key] = TimeSeries([], [], "fps", Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, fps)
 						continue
+					# clpeak
+					search = re.search(r'clpeak float\s+:\s+(\d+\.\d+)', line)
+					if search:
+						bw = float(search.group(1)) * 1024
+						key = f'gpua.clpeak.float.bw'
+						if key not in self.all_series:
+							self.all_series[key] = TimeSeries([], [], "MB/s", Better.HIGHER)
+						self.all_series[key].add_one_data(timestamp, bw)
 					# bandwidth monitor
 					search = re.search(r'\*\*(Average|Full) Bandwidth\*\*', line)
 					if search:
