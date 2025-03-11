@@ -338,6 +338,16 @@ class ScenarioImporter:
 								self.all_series[key] = TimeSeries([], [], unit, Better.HIGHER)
 							self.all_series[key].add_one_data(monitor_timestamp, bw)
 							continue
+						else:
+							search = re.search(r'^(.+):(( +\d+)+)', striped_line)
+							if search:
+								name = search.group(1).lower()
+								for i, v in enumerate(search.group(2).strip().split()):
+									key = f'{name}.monitor.{i}.total_bw'
+									if key not in self.all_series:
+										self.all_series[key] = TimeSeries([], [], "MB/s", Better.HIGHER)
+									self.all_series[key].add_one_data(monitor_timestamp, int(v))
+								continue
 						# for ddr limit req
 						if config.config['scenario_importer.monitor.with_limit_req']:
 							search = re.search(r'(Read|Write): ((\d| )+)', striped_line)
