@@ -31,6 +31,7 @@ class ScenarioImporter:
 			line = ""
 			new_line = True
 			cam_idx = 0
+			monitor_name = ""
 			for l in f.readlines():
 				raw_lineno += 1
 				try:
@@ -307,6 +308,20 @@ class ScenarioImporter:
 							striped_line = search.group(1)
 						else:
 							striped_line = line
+						# the next line of bandwidth monitor is latency
+						if monitor_name != "":
+							search = re.search(r'^((\d+ +)+)', striped_line+" ")
+							if search:
+								for i, v in enumerate(search.group(1).strip().split()):
+									key = f'{monitor_name}.monitor.{i}.latency'
+									if key not in self.all_series:
+										self.all_series[key] = TimeSeries([], [], "ns", Better.LOWER)
+									self.all_series[key].add_one_data(monitor_timestamp, int(v))
+								monitor_name = ""
+								continue
+							else:
+								monitor_name = ""
+						# now check the orginal bandwidth monitor line
 						search = re.search(r'^(.+): (\d+) ([KMG]+B/s)', striped_line)
 						if search:
 							name = search.group(1).lower()
@@ -341,9 +356,9 @@ class ScenarioImporter:
 						else:
 							search = re.search(r'^(.+):(( +\d+)+)', striped_line)
 							if search:
-								name = search.group(1).lower()
+								monitor_name = search.group(1).lower()
 								for i, v in enumerate(search.group(2).strip().split()):
-									key = f'{name}.monitor.{i}.total_bw'
+									key = f'{monitor_name}.monitor.{i}.total_bw'
 									if key not in self.all_series:
 										self.all_series[key] = TimeSeries([], [], "MB/s", Better.HIGHER)
 									self.all_series[key].add_one_data(monitor_timestamp, int(v))
@@ -496,7 +511,7 @@ class ScenarioImporter:
 	def get_all_series(self):
 		if not self.post_processed:
 			self.calc_total_bw()
-			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.total_bw$', 'ddr.monitor.sum_total_bw')
+			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor(\.\d+)?\.total_bw$', 'ddr.monitor.sum_total_bw')
 			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.total_bw\(r\+w\)$', 'ddr.monitor.sum_total_bw(r+w)')
 			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.read_bw$', 'ddr.monitor.sum_read_bw')
 			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.write_bw$', 'ddr.monitor.sum_write_bw')
