@@ -253,16 +253,25 @@ class ScenarioImporter:
 								self.all_series[key] = TimeSeries([], [], 'ms', Better.LOWER)
 							self.all_series[key].add_one_data(timestamp, time)
 							continue
-					search = re.search(r'Display get wb frame done,fps = (\d+\.\d+), bw = (\d+)', line)
+					# dpu
+					search = re.search(r'Display get (.*) frame done,fps = (\d+\.\d+), bw = (\d+)', line)
 					if search:
-						key = 'dpu.fps'
-						fps = float(search.group(1))
+						if search.group(1) == 'dpu0':
+							prefix = 'dpu.0.'
+						elif search.group(1) == 'dpu1':
+							prefix = 'dpu.1.'
+						elif search.group(1) == 'wb':
+							prefix = 'dpu.'
+						else:
+							raise Exception(f'Unknown display module {search.group(1)}')
+						key = prefix + 'fps'
+						fps = float(search.group(2))
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], 'fps', Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, fps)
 
-						key = 'dpu.bw'
-						bw = int(search.group(2)) / 1024 / 1024
+						key = prefix + 'bw'
+						bw = int(search.group(3)) / 1024 / 1024
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, bw)
@@ -310,16 +319,40 @@ class ScenarioImporter:
 							striped_line = line
 						# the next line of bandwidth monitor is latency
 						if monitor_name != "":
+							if striped_line.startswith('WB '):
+								metric = "write_bw"
+								striped_line = striped_line[3:]
+								better = Better.HIGHER
+								unit = "MB/s"
+								end = False
+							elif striped_line.startswith('RL '):
+								metric = "read_latency"
+								striped_line = striped_line[3:]
+								better = Better.LOWER
+								unit = "ns"
+								end = False
+							elif striped_line.startswith('WL '):
+								metric = "write_latency"
+								striped_line = striped_line[3:]
+								better = Better.LOWER
+								unit = "ns"
+								end = True
+							else:
+								metric = "latency"
+								better = Better.LOWER
+								unit = "ns"
+								end = True
 							search = re.search(r'^((\d+ +)+)', striped_line+" ")
 							if search:
 								for i, v in enumerate(search.group(1).strip().split()):
-									key = f'{monitor_name}.monitor.{i}.latency'
+									key = f'{monitor_name}.monitor.{i}.{metric}'
 									if key not in self.all_series:
-										self.all_series[key] = TimeSeries([], [], "ns", Better.LOWER)
+										self.all_series[key] = TimeSeries([], [], unit, better)
 									self.all_series[key].add_one_data(monitor_timestamp, int(v))
-								monitor_name = ""
+								if end:
+									monitor_name = ""
 								continue
-							else:
+							elif end:
 								monitor_name = ""
 						# now check the orginal bandwidth monitor line
 						search = re.search(r'^(.+): (\d+) ([KMG]+B/s)', striped_line)
@@ -357,8 +390,13 @@ class ScenarioImporter:
 							search = re.search(r'^(.+):(( +\d+)+)', striped_line)
 							if search:
 								monitor_name = search.group(1).lower()
+								if monitor_name.endswith(' rb'):
+									monitor_name = monitor_name[:-3]
+									rw = 'read'
+								else:
+									rw = 'total'
 								for i, v in enumerate(search.group(2).strip().split()):
-									key = f'{monitor_name}.monitor.{i}.total_bw'
+									key = f'{monitor_name}.monitor.{i}.{rw}_bw'
 									if key not in self.all_series:
 										self.all_series[key] = TimeSeries([], [], "MB/s", Better.HIGHER)
 									self.all_series[key].add_one_data(monitor_timestamp, int(v))
