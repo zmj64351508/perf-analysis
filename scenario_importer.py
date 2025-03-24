@@ -245,14 +245,15 @@ class ScenarioImporter:
 							isp_module = ""
 							isp_module_idx = None
 							continue
-						search = re.search(r'max hw proc tm:(\d+\.\d+)ms', line)
-						if search:
-							time = float(search.group(1))
-							key = f'cam.{isp_module}.{isp_module_idx}.hw_process_time'
-							if key not in self.all_series:
-								self.all_series[key] = TimeSeries([], [], 'ms', Better.LOWER)
-							self.all_series[key].add_one_data(timestamp, time)
-							continue
+						# Disable hw_process_time because the data is not accurate
+						#search = re.search(r'max hw proc tm:(\d+\.\d+)ms', line)
+						#if search:
+						#	time = float(search.group(1))
+						#	key = f'cam.{isp_module}.{isp_module_idx}.hw_process_time'
+						#	if key not in self.all_series:
+						#		self.all_series[key] = TimeSeries([], [], 'ms', Better.LOWER)
+						#	self.all_series[key].add_one_data(timestamp, time)
+						#	continue
 					# dpu
 					search = re.search(r'Display get (.*) frame done,fps = (\d+\.\d+), bw = (\d+)', line)
 					if search:
@@ -262,6 +263,14 @@ class ScenarioImporter:
 							prefix = 'dpu.1.'
 						elif search.group(1) == 'wb':
 							prefix = 'dpu.'
+						elif search.group(1) == 'dpu0 compose0' or search.group(1) == 'dpu0 composer0':
+							prefix = 'dpu.0.composer.0.'
+						elif search.group(1) == 'dpu0 composer1':
+							prefix = 'dpu.0.composer.1.'
+						elif search.group(1) == 'dpu1 composer0':
+							prefix = 'dpu.1.composer.0.'
+						elif search.group(1) == 'dpu1 composer1':
+							prefix = 'dpu.1.composer.1.'
 						else:
 							raise Exception(f'Unknown display module {search.group(1)}')
 						key = prefix + 'fps'
@@ -275,6 +284,14 @@ class ScenarioImporter:
 						if key not in self.all_series:
 							self.all_series[key] = TimeSeries([], [], 'MB/s', Better.HIGHER)
 						self.all_series[key].add_one_data(timestamp, bw)
+						continue
+					search = re.search(r'Display dpu(\d+) composer(\d+) underflow probability (\d+)%', line)
+					if search:
+						key = f'dpu.{search.group(1)}.composer.{search.group(2)}.underflow'
+						val = int(search.group(3))
+						if key not in self.all_series:
+							self.all_series[key] = TimeSeries([], [], '%', Better.LOWER)
+						self.all_series[key].add_one_data(timestamp, val)
 						continue
 					# cpu memcpy
 					search = re.search(r'Core(\d+):.*cpu memcpy test bandwidth: (\d+) MB/s', line)
@@ -558,6 +575,9 @@ class ScenarioImporter:
 			self.sum_series(r'a720.*\.monitor\.read_bw', 'a720.monitor.sum_read_bw')
 			self.sum_series(r'a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
 			self.sum_series(r'a720.*\.monitor\.write_bw', 'a720.monitor.sum_write_bw')
+			for name in ['cam', 'bpu', 'dpu', 'gpua', 'vpu']:
+				self.sum_series(f'{name}\.monitor\.\d+\.read_bw', f'{name}.monitor.sum_read_bw')
+				self.sum_series(f'{name}\.monitor\.\d+\.write_bw', f'{name}.monitor.sum_write_bw')
 			self.sum_series(r'ddr\.\d*[1,3,5,7,9]\.monitor\.total_bw', 'ddr.adas.monitor.sum_total_bw')
 			self.sum_series(r'ddr\.\d*[2,4,6,8,0]\.monitor\.total_bw', 'ddr.ivi.monitor.sum_total_bw')
 			for name in config.config["scenario_importer.linux.cpus"]:
