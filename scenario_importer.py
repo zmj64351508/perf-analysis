@@ -254,6 +254,17 @@ class ScenarioImporter:
 						#		self.all_series[key] = TimeSeries([], [], 'ms', Better.LOWER)
 						#	self.all_series[key].add_one_data(timestamp, time)
 						#	continue
+					search = re.search(r' \[(\w+)\]\[(\w+)\] recv frm\(overflow/total\): \((\d+)/(\d+)\)', line)
+					if search:
+						mod0 = search.group(1)
+						mod1 = search.group(2)
+						key = f"cam.{mod0}.{mod1}.overflow"
+						overflow = float(search.group(3))
+						total = float(search.group(4))
+						if key not in self.all_series:
+							self.all_series[key] = TimeSeries([], [], '%', Better.HIGHER)
+						self.all_series[key].add_one_data(timestamp, overflow/total)
+						continue
 					# dpu
 					search = re.search(r'Display get (.*) frame done,fps = (\d+\.\d+), bw = (\d+)', line)
 					if search:
