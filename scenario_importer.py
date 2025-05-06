@@ -407,6 +407,8 @@ class ScenarioImporter:
 								name = 'a720.PNC'
 							elif name.startswith('cpu '):
 								name = name.replace('cpu ', 'a720.')
+
+							name = name.replace(' ', '_')
 							key = f'{name}.monitor.{rw}_bw'
 							bw = int(search.group(2))
 							unit = search.group(3)
@@ -577,8 +579,8 @@ class ScenarioImporter:
 	def get_all_series(self):
 		if not self.post_processed:
 			self.calc_total_bw()
-			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor(\.\d+)?\.total_bw$', 'ddr.monitor.sum_total_bw')
-			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.total_bw\(r\+w\)$', 'ddr.monitor.sum_total_bw(r+w)')
+			#self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor(\.\d+)?\.total_bw$', 'ddr.monitor.sum_total_bw')
+			#self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.total_bw\(r\+w\)$', 'ddr.monitor.sum_total_bw(r+w)')
 			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.read_bw$', 'ddr.monitor.sum_read_bw')
 			self.sum_series(r'^(?!ddr(\.\d+)*).+\.monitor\.write_bw$', 'ddr.monitor.sum_write_bw')
 			self.sum_series(r'a720.*\.monitor\.total_bw$', 'a720.monitor.sum_total_bw')
@@ -589,6 +591,12 @@ class ScenarioImporter:
 			for name in ['cam', 'bpu', 'dpu', 'gpua', 'vpu']:
 				self.sum_series(f'{name}\.monitor\.\d+\.read_bw', f'{name}.monitor.sum_read_bw')
 				self.sum_series(f'{name}\.monitor\.\d+\.write_bw', f'{name}.monitor.sum_write_bw')
+				if f'{name}.monitor.sum_read_bw' in self.all_series and f'{name}.monitor.sum_write_bw' in self.all_series:
+					self.all_series[f'{name}.monitor.sum_total_bw'] = self.add_series(self.all_series[f'{name}.monitor.sum_read_bw'], self.all_series[f'{name}.monitor.sum_write_bw'])
+			if self.all_series.get('ddr.monitor.total_bw(r+w)') is None and self.all_series.get('ddr_adas.monitor.total_bw(r+w)') is not None:
+				self.all_series['ddr.monitor.total_bw(r+w)'] = self.add_series(self.all_series['ddr_adas.monitor.total_bw(r+w)'], self.all_series['ddr_cabit.monitor.total_bw(r+w)'])
+				self.all_series['ddr.monitor.read_bw'] = self.add_series(self.all_series['ddr_adas.monitor.read_bw'], self.all_series['ddr_cabit.monitor.read_bw'])
+				self.all_series['ddr.monitor.write_bw'] = self.add_series(self.all_series['ddr_adas.monitor.write_bw'], self.all_series['ddr_cabit.monitor.write_bw'])
 			self.sum_series(r'ddr\.\d*[1,3,5,7,9]\.monitor\.total_bw', 'ddr.adas.monitor.sum_total_bw')
 			self.sum_series(r'ddr\.\d*[2,4,6,8,0]\.monitor\.total_bw', 'ddr.ivi.monitor.sum_total_bw')
 			for name in config.config["scenario_importer.linux.cpus"]:
