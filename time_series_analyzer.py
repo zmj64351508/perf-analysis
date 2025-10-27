@@ -7,6 +7,7 @@ from scenario_importer import ScenarioImporter
 from time_series_viewer import TimeSeriesViewerManager
 from config import config
 from time_series_selector import TimeSeriesSelector
+import ppmf_importer
 import csv_exporter
 import series_importer_exporter
 
@@ -38,7 +39,7 @@ if __name__ == "__main__":
 	parser.add_argument("-s", "--start", type=int, default=None, help="start timestamp")
 	parser.add_argument("-e", "--end", type=int, default=None, help="end timestamp")
 	parser.add_argument("-c", "--convert", type=str, nargs='?', default="", help="Convert to standard data format, argument is prefix")
-	parser.add_argument("-i", "--input_format", type=str, default="unknown", help="Input format (candidates: scenario, series)")
+	parser.add_argument("-i", "--input_format", type=str, default="unknown", help="Input format (candidates: scenario, series, ppmf)")
 	parser.add_argument("--group", action="store_true", help="Automatically group series")
 	parser.add_argument("--beat_size", type=int, default=0, help="Bus beat size")
 	parser.add_argument('input_files', nargs='+', help='List of files to process.')
@@ -51,6 +52,8 @@ if __name__ == "__main__":
 		importer = series_importer_exporter.SeriesImporter()
 	elif args.input_format == "scenario":
 		importer = ScenarioImporter()
+	elif args.input_format == "ppmf":
+		importer = ppmf_importer.PPMFImporter()
 	else:
 		importer = None
 	
